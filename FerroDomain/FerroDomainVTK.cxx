@@ -127,18 +127,18 @@ int main(int argc, char *argv[])
   bool independentComponents=true;
 
 
-  FreeFormatParser b;
-  b.setFilename("struct.in");
-  b.parse();
-  std::cout << "The first Level"<<b.getFirstLevel("Plane") << endl;
-  string c=b.getSecondLevel("COLUMN1","SHAPE"); 
-  std::cout << "The second level" << c<< endl;
-  int x;
-  istringstream(c) >> x;
-  cout << "x="<<x<<endl;
-  double m,n,p;
-  istringstream(b.getFirstLevel("simdim")) >> m >> n >> p;
-  cout << "mnp="<<m<<n<<p<<endl;
+//  FreeFormatParser b;
+//  b.setFilename("struct.in");
+//  b.parse();
+//  std::cout << "The first Level"<<b.getFirstLevel("Plane") << endl;
+//  string c=b.getSecondLevel("COLUMN1","SHAPE"); 
+//  std::cout << "The second level" << c<< endl;
+//  int x;
+//  istringstream(c) >> x;
+//  cout << "x="<<x<<endl;
+//  double m,n,p;
+//  istringstream(b.getFirstLevel("simdim")) >> m >> n >> p;
+//  cout << "mnp="<<m<<n<<p<<endl;
 
   FerroDomain ferroDomain;
   ferroDomain.setStandardValue(0.1);
@@ -235,11 +235,12 @@ int main(int argc, char *argv[])
   }
   
 
+  cout << "Initialize vtk" << endl;
+
   // Create the renderer, render window and interactor
   /* vtkRenderer *renderer = vtkRenderer::New(); */
   VTK_CREATE(vtkRenderer,renderer);
   VTK_CREATE(vtkRenderWindow,renWin);
-  renWin->AddRenderer(renderer);
 
   // Connect it all. Note that funny arithematic on the
   // SetDesiredUpdateRate - the vtkRenderWindow divides it
@@ -247,10 +248,7 @@ int main(int argc, char *argv[])
   // divides it time across all props. If clip is
   // t[M#Arue then there are two props
   VTK_CREATE(vtkRenderWindowInteractor,iren);
-  iren->SetRenderWindow(renWin);
   VTK_CREATE(vtkInteractorStyleTrackballCamera,style);
-  iren->SetInteractorStyle(style);
-  renWin->Render();
  // Read the data
   VTK_CREATE(vtkXMLImageDataReader,reader);
   VTK_CREATE(vtkImageData,input);
@@ -294,6 +292,14 @@ int main(int argc, char *argv[])
   }
 
   input->ShallowCopy(reader->GetOutput());
+
+
+
+  renWin->AddRenderer(renderer);
+  iren->SetRenderWindow(renWin);
+  iren->SetInteractorStyle(style);
+  renWin->Render();
+
 
   // Create our volume and mapper
   cout << reader->GetPointArrayStatus(reader->GetPointArrayName(1)) << endl;;

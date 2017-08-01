@@ -23,9 +23,9 @@ string FreeFormatParser::getFirstLevel(string firstLevelName){
     string value="";
     transform(firstLevelName.begin(),firstLevelName.end(),firstLevelName.begin(),::toupper);
     for (int i = 0; i < firstLevelLength; i++) {
-        cout << "compare fisrt " << firstLevel[i][0] << firstLevelName <<endl;
+        /* cout << "compare fisrt " << firstLevel[i][0] << firstLevelName <<endl; */
         if(firstLevel[i][0]==firstLevelName){
-            cout << "Inside the correct part" << endl;
+            /* cout << "Inside the correct part" << endl; */
             value=firstLevel[i][1];
             break;
         }
@@ -37,9 +37,9 @@ string FreeFormatParser::getSecondLevel(string firstLevelName,string secondLevel
     string value="";
     transform(secondLevelName.begin(),secondLevelName.end(),secondLevelName.begin(),::toupper);
     for (int i = 0; i < secondLevelLength; i++) {
-        cout << "compare second" << secondLevel[i][0] << secondLevel[i][1] << firstLevelName << secondLevelName <<endl;
+        /* cout << "compare second" << secondLevel[i][0] << secondLevel[i][1] << firstLevelName << secondLevelName <<endl; */
         if(secondLevel[i][0]==firstLevelName && secondLevel[i][1]==secondLevelName){
-            cout << "Inside the correct part" << secondLevel[i][2] << endl;
+            /* cout << "Inside the correct part" << secondLevel[i][2] << endl; */
             value=secondLevel[i][2];
             break;
         }
@@ -62,10 +62,10 @@ void FreeFormatParser::parse(){
             secondId=lineHold.getSecondLevelIdentifier();
             value=lineHold.getValues();
             comment=lineHold.getComment();
-            cout << "List"<<firstId << secondId << value << comment<< endl;
+            /* cout << "List"<<firstId << secondId << value << comment<< endl; */
             if(secondId=="" && firstId!=""){
 
-            std::cout << "FirstLevel" << line <<std::endl;
+            /* std::cout << "FirstLevel" << line <<std::endl; */
                 transform(firstId.begin(),firstId.end(),firstId.begin(),::toupper);
                 vector<string> first;
                 first.resize(3);
@@ -75,7 +75,7 @@ void FreeFormatParser::parse(){
                 firstLevel.push_back(first);
                 firstLevelLength++;
             }else if(firstId!="" && secondId!=""){
-            std::cout << "SecondLevel" << line <<std::endl;
+            /* std::cout << "SecondLevel" << line <<std::endl; */
                 transform(secondId.begin(),secondId.end(),secondId.begin(),::toupper);
                 vector<string> second;
                 second.resize(4);
@@ -89,6 +89,6 @@ void FreeFormatParser::parse(){
         }
         freeFile.close();
     }else{
-        std::cout << filename << " does not exist" << std::endl;
+        /* std::cout << filename << " does not exist" << std::endl; */
     }
 }

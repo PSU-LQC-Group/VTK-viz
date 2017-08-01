@@ -42,7 +42,7 @@ void MuDataset::setDatFileName(string str){
     vtiFileName=filename+".vti";
 
 
-    cout << "The data file name is: " << datFileName << endl;
+    /* cout << "The data file name is: " << datFileName << endl; */
 }
 
 string MuDataset::getDatFileName(){
@@ -60,13 +60,13 @@ string MuDataset::getVTIFileName(){
 void MuDataset::setVTKFileName(string str){
     vtkFileName=str;
 
-    cout  << "The vtk file name is: " << vtkFileName << endl;
+    /* cout  << "The vtk file name is: " << vtkFileName << endl; */
 }
 
 void MuDataset::setVTIFileName(string str){
     vtiFileName=str;
 
-    cout  << "The vti file name is: " << vtiFileName << endl;
+    /* cout  << "The vti file name is: " << vtiFileName << endl; */
 }
 
 void MuDataset::readDatFile(){

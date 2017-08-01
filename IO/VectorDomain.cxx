@@ -1,6 +1,9 @@
 #include <VectorDomain.h>
 #include <cmath>
+#include <iostream>
 
+
+using namespace std;
 VectorDomain::VectorDomain(int length):domainTypeCount(length){
    domainOrth=new double*[domainTypeCount];
    domainRGB=new double*[domainTypeCount];
@@ -79,11 +82,12 @@ int VectorDomain::getDomainType(double px,double py,double pz){
    double hold=5;
    int domainValue=-1;
 
+   /* cout << "Process domain type for "<< px << " " << py << " " << pz << " " << domainStandardAngleRad<< endl; */
    length=std::sqrt(px*px+py*py+pz*pz);
    if(length>domainStandardValue){
 
        for (int i = 0; i < domainTypeCount; i++) {
-          cosValue = (px*domainOrth[i][0]+py*domainOrth[i][1]+pz*domainOrth[i][2]);
+          cosValue = (px*domainOrth[i][0]+py*domainOrth[i][1]+pz*domainOrth[i][2])/length;
           if (cosValue>1) {
               angle=0;
           }else if (cosValue<-1) {
@@ -92,12 +96,15 @@ int VectorDomain::getDomainType(double px,double py,double pz){
               angle=std::acos(cosValue);
           }
 
+          /* cout << "in loop "<< i << " " << cosValue << " " << angle << " " << hold << " " << domainOrth[i][0] << " " << domainOrth[i][1] << " " << domainOrth[i][2] << endl; */
           if (angle<domainStandardAngleRad && angle < hold) {
               hold=angle;
               domainValue=i;
           }
        }
    }
+
+   /* cout << "Returning the domain type is "<< domainValue << endl; */
 
 
    return domainValue;
@@ -125,18 +132,6 @@ void VectorDomain::setStandardAngle(double angle){
 
 void VectorDomain::setStandardRad(double rad){
    domainStandardAngleRad=rad;
-}
-
-double VectorDomain::getDomainR(int index){
-  return domainRGB[index][0];
-}
-
-double VectorDomain::getDomainG(int index){
-  return domainRGB[index][1];
-}
-
-double VectorDomain::getDomainB(int index){
-  return domainRGB[index][2];
 }
 
 int VectorDomain::getDomainTypeCount(){

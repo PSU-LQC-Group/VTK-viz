@@ -38,7 +38,7 @@
 
 #include <FreeFormatOneLine.h>
 #include <FreeFormatParser.h>
-#include <MuDataset.h>
+#include <Dataset.h>
 #include <sstream>
 #include <iostream>
 
@@ -258,7 +258,7 @@ int main(int argc, char *argv[])
   }
   else if ( fileType == DAT_FILETYPE )
   {
-  MuDataset dat;
+  Dataset dat;
   int datDim[4];
   dat.setDatFileName(fileName);
   dat.readDatFile();
