@@ -17,7 +17,7 @@ void Data::initializeFile(std::vector<std::string> header){
     file.open(fileName,ios::trunc);
     length=header.size();
     for (int i = 0; i < length; i++) {
-        file << setw(15) << header[1] ;
+        file << setw(15) << header[i] ;
     }
     file << std::endl; 
     file.close();
@@ -57,3 +57,30 @@ void Data::outputWithIndex(int index,std::vector<double> value){
     file.close();
 
 }
+
+void Data::outputWithName(std::string name,std::vector<double> value){
+    ofstream file;
+    int length;
+    file.open(fileName,ios::app);
+    length=value.size();
+    file << setw(15) << name ;
+    for (int i = 0; i < length; i++) {
+        file << std::scientific <<setw(15) << value[i] ; 
+    }
+    file <<  std::endl;
+    file.close();
+}
+
+void Data::outputWithIndexAndName(int index,std::string name,std::vector<double> value){
+    ofstream file;
+    int length;
+    file.open(fileName,ios::app);
+    length=value.size();
+    file << setw(15) << index << std::right << setw(15) << name ;
+    for (int i = 0; i < length; i++) {
+        file << std::scientific <<setw(15) << value[i] ; 
+    }
+    file <<  std::endl;
+    file.close();
+}
+

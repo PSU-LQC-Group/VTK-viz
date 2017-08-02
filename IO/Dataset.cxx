@@ -34,15 +34,14 @@ void Dataset::setDatFileName(string str){
 
     datFileName=str;
 
-    fileName=datFileName.substr(0,datFileName.find("."));
+    shortFileName=datFileName.substr(0,datFileName.find("."));
 
-    string filename;
-    filename=datFileName.substr(0, datFileName.find_last_of("."));
-    vtkFileName=filename+".vtk";
-    vtiFileName=filename+".vti";
+    longFileName=datFileName.substr(0, datFileName.find_last_of("."));
+    vtkFileName=longFileName+".vtk";
+    vtiFileName=longFileName+".vti";
 
 
-    cout << "The data file name is: " << datFileName << endl;
+    /* cout << "The data file name is: " << datFileName << endl; */
 }
 
 string Dataset::getDatFileName(){
@@ -60,13 +59,35 @@ string Dataset::getVTIFileName(){
 void Dataset::setVTKFileName(string str){
     vtkFileName=str;
 
-    cout  << "The vtk file name is: " << vtkFileName << endl;
+    shortFileName=vtkFileName.substr(0,vtkFileName.find("."));
+
+    longFileName=vtkFileName.substr(0, vtkFileName.find_last_of("."));
+    datFileName=longFileName+".dat";
+    vtiFileName=longFileName+".vti";
+
+
+
+    /* cout  << "The vtk file name is: " << vtkFileName << endl; */
+}
+
+string Dataset::getShortFileName(){
+    return shortFileName;
+}
+
+string Dataset::getLongFileName(){
+    return longFileName;
 }
 
 void Dataset::setVTIFileName(string str){
     vtiFileName=str;
 
-    cout  << "The vti file name is: " << vtiFileName << endl;
+    shortFileName=vtiFileName.substr(0,vtiFileName.find("."));
+
+    longFileName=vtiFileName.substr(0, vtiFileName.find_last_of("."));
+    datFileName=longFileName+".dat";
+    vtkFileName=longFileName+".vtk";
+
+    /* cout  << "The vti file name is: " << vtiFileName << endl; */
 }
 
 void Dataset::readDatFile(){
@@ -79,20 +100,20 @@ void Dataset::readDatFile(){
     getline(input,line);
     istringstream iss(line);
     iss >> x >> y >> z;
-    cout << "one line" << line<<endl;
+    /* cout << "one line" << line<<endl; */
     // Read the second line to get the column number
     iss.clear();
     getline(input,line);
     iss.str(line);
-    cout << "one line" << line<<endl;
+    /* cout << "one line" << line<<endl; */
     while (iss >> hold){
         columnCount++;
-        cout << hold << endl;
+        /* cout << hold << endl; */
     }
     col=columnCount-3;
     input.close();
 
-    cout << "Inside the base dataset "<<x<<y<<z<<col<<endl;
+    /* cout << "Inside the base dataset "<<x<<y<<z<<col<<endl; */
 
 
     // Initialize the data array
@@ -107,7 +128,7 @@ void Dataset::readDatFile(){
         }
     }
 
-    cout << "after the data allocate" << endl;
+    /* cout << "after the data allocate" << endl; */
 
 
 
@@ -160,7 +181,7 @@ void Dataset:: outputVTKFile(){
 
     for (int m = 0; m < col; m++) {
 
-        output << "SCALARS " << fileName << "_" << to_string(m) << " float\n";
+        output << "SCALARS " << shortFileName << "_" << to_string(m) << " float\n";
         output << "LOOKUP_TABLE default\n";
         output << std::scientific;
 
@@ -193,7 +214,7 @@ void Dataset::outputVTIFile(){
     for (int m = 0; m < col; m++) {
         imageDataHold[m]->SetNumberOfComponents(1);
         imageDataHold[m]->SetNumberOfTuples(x*y*z);
-        tempName=fileName+"_"+to_string(m);
+        tempName=shortFileName+"_"+to_string(m);
         imageDataHold[m]->SetName(tempName.c_str());
 
 

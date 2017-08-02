@@ -1,15 +1,15 @@
 /*=========================================================================
 
-  Program:   Visualization Toolkit
-  Module:    FixedPointVolumeRayCastMapperCT.cxx
+Program:   Visualization Toolkit
+Module:    FixedPointVolumeRayCastMapperCT.cxx
 
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
+Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+All rights reserved.
+See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
 
-     This software is distributed WITHOUT ANY WARRANTY; without even
-     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-     PURPOSE.  See the above copyright notice for more information.
+This software is distributed WITHOUT ANY WARRANTY; without even
+the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE.  See the above copyright notice for more information.
 
 =========================================================================*/
 // VTK includes
@@ -35,11 +35,14 @@
 #include "vtkCallbackCommand.h"
 #include "vtkPointData.h"
 #include "vtkInteractorStyleTrackballCamera.h"
+#include "vtkWindowToImageFilter.h"
+#include "vtkPNGWriter.h"
 
 #include <FreeFormatOneLine.h>
 #include <FreeFormatParser.h>
 #include <VectorDomainDataset.h>
 #include <FerroDomain.h>
+#include <Data.h>
 #include <sstream>
 #include <iostream>
 
@@ -50,47 +53,6 @@
     vtkSmartPointer<type> name = vtkSmartPointer<type>::New()
 
 using namespace std;
-
-void PrintUsage()
-{
-  cout << "Usage: " << endl;
-  cout << endl;
-  cout << "  FerroDomainVTK <options>" << endl;
-  cout << endl;
-  cout << "where options may include: " << endl;
-  cout << endl;
-  cout << "  -VTK <filename>" << endl;
-  cout << "  -DAT <filename>" << endl;
-  cout << "  -Clip" << endl;
-  cout << "  -CompositeRamp <window> <level>" << endl;
-  cout << "  -CompositeShadeRamp <window> <level>" << endl;
-  cout << "  -FrameRate <rate>" << endl;
-  cout << "  -DataReduction <factor>" << endl;
-  cout << endl;
-  cout << "You must use either the -DICOM option to specify the directory where" << endl;
-  cout << "the data is located or the -VTI or -MHA option to specify the path of a .vti file." << endl;
-  cout << endl;
-  cout << "By default, the program assumes that the file has independent components," << endl;
-  cout << "use -DependentComponents to specify that the file has dependent components." << endl;
-  cout << endl;
-  cout << "Use the -Clip option to display a cube widget for clipping the volume." << endl;
-  cout << "Use the -FrameRate option with a desired frame rate (in frames per second)" << endl;
-  cout << "which will control the interactive rendering rate." << endl;
-  cout << "Use the -DataReduction option with a reduction factor (greater than zero and" << endl;
-  cout << "less than one) to reduce the data before rendering." << endl;
-  cout << "Use one of the remaining options to specify the blend function" << endl;
-  cout << "and transfer functions. The -MIP option utilizes a maximum intensity" << endl;
-  cout << "projection method, while the others utilize compositing. The" << endl;
-  cout << "-CompositeRamp option is unshaded compositing, while the other" << endl;
-  cout << "compositing options employ shading." << endl;
-  cout << endl;
-  cout << "Note: MIP, CompositeRamp, CompositeShadeRamp, CT_Skin, CT_Bone," << endl;
-  cout << "and CT_Muscle are appropriate for DICOM data. MIP, CompositeRamp," << endl;
-  cout << "and RGB_Composite are appropriate for RGB data." << endl;
-  cout << endl;
-  cout << "Example: FixedPointVolumeRayCastMapperCT -DICOM CTNeck -MIP 4096 1024" << endl;
-  cout << endl;
-}
 
 //void KeypressCallbackFunction(vtkObject* caller, long unsigned int eventId, void* clientData, void* callData){
 //    /* VTK_CREATE(vtkSmartVolumeMapper,mapper); */
@@ -110,271 +72,337 @@ void PrintUsage()
 
 int main(int argc, char *argv[])
 {
-  // Parse the parameters
+    // Parse the parameters
 
-  int count = 1;
-  char *dirname = NULL;
-  double opacityWindow = 4096;
-  double opacityLevel = 2048;
-  int blendType = 0;
-  int clip = 0;
-  double reductionFactor = 1.0;
-  double frameRate = 10.0;
-  char *fileName=0;
-  int fileType=0;
-  char **firstLevel[300],**secondLevel[300];
+    double opacityWindow = 4096;
+    double opacityLevel = 2048;
+    int blendType = 0;
+    int clip = 0;
+    double reductionFactor = 1.0;
+    double frameRate = 10.0;
+    vector<string> fileName;
+    vector<string> vtiFileName;
+    vector<string> imageName;
+    char **firstLevel[300],**secondLevel[300];
 
-  bool independentComponents=true;
+    bool independentComponents=true;
+    bool fileFormatSTD=true;
+    bool viewWindow = true;
+    bool outputDomainAnalysis = false;
+    double Value,R,G,B,Alpha;
+    string shortFileName="",midFileName="",extension="";
+    string choiceColor;
+    int start=0,delta=0,end=0,count=1;
+    double domainValue,domainAngle;
+    ostringstream stringstream("");
+    Data domainInfo;
 
 
-//  FreeFormatParser b;
-//  b.setFilename("struct.in");
-//  b.parse();
-//  std::cout << "The first Level"<<b.getFirstLevel("Plane") << endl;
-//  string c=b.getSecondLevel("COLUMN1","SHAPE"); 
-//  std::cout << "The second level" << c<< endl;
-//  int x;
-//  istringstream(c) >> x;
-//  cout << "x="<<x<<endl;
-//  double m,n,p;
-//  istringstream(b.getFirstLevel("simdim")) >> m >> n >> p;
-//  cout << "mnp="<<m<<n<<p<<endl;
+    cout << "Start to read the strct.in file" << endl;
+    FreeFormatParser structRead;
+    structRead.setFilename("struct.in");
+    structRead.parse();
 
-  FerroDomain ferroDomain;
-  ferroDomain.setStandardValue(0.1);
-  ferroDomain.setStandardAngle(180);
-  
-
-  while ( count < argc )
-  {
-    if ( !strcmp( argv[count], "?" ) )
-    {
-      PrintUsage();
-      exit(EXIT_SUCCESS);
+    if (structRead.firstKeyExist("LSTDFORMAT")) {
+        istringstream(structRead.getFirstLevel("LSTDFORMAT")[0]) >> boolalpha >>  fileFormatSTD;
+        cout << setw(100) << right << "Choose to use the standard dat format " << boolalpha << fileFormatSTD<<structRead.getFirstLevel("LSTDFORMAT")[0] << endl;
+    }else{
+        cout << setw(100) << right << "No value of LSTDFORMAT is set, use the default value of " << fileFormatSTD << endl;
     }
-    else if ( !strcmp( argv[count], "-VTI" ) )
-    {
-      fileName = new char[strlen(argv[count+1])+1];
-      fileType = VTI_FILETYPE;
-      sprintf( fileName, "%s", argv[count+1] );
-      count += 2;
+
+
+
+    cout << argc << "argc" << endl;
+    if (argc==1) {
+        viewWindow=false;
+        outputDomainAnalysis=false;
+
+        if (structRead.firstKeyExist("FILENAME")) {
+            shortFileName = structRead.getFirstLevel("FILENAME")[0]; 
+            cout << setw(100) << right << "The common file name is " << shortFileName << endl;
+        }else{
+            cout << "!!!!!!!!!!!Error!!!!!!!!!!!" << endl;
+            cout << "The FILENAME is not set yet" << endl;
+            cout << "!!!!!!!!!!!Error!!!!!!!!!!!" << endl;
+            exit(-1);
+        }
+
+
+        if (structRead.firstKeyExist("EXTENSION")) {
+            extension = structRead.getFirstLevel("EXTENSION")[0];
+            cout << setw(100) << right << "The data extension is " << extension << endl;
+        }else{
+            extension = "dat";
+            cout << setw(100) << right << "No extension is specified, use the default one " << extension << endl;
+        }
+
+
+        if (fileFormatSTD) {
+            if (structRead.firstKeyExist("START")) {
+                istringstream(structRead.getFirstLevel("start")[0]) >> start ;
+                cout << setw(100) << right << "The start time step is " << start << endl; 
+            }else{
+                cout << setw(100) << right << "No initial time step set, use the default value " << start << endl;
+            }
+            if (structRead.firstKeyExist("END")) {
+                istringstream(structRead.getFirstLevel("end")[0]) >> end;
+                cout << setw(100) << right << "The end time step is " << end << endl; 
+            }else{
+                cout << setw(100) << right << "No end time step set, use the default value " << end << endl;
+            }
+            if (structRead.firstKeyExist("DELTA")) {
+                istringstream(structRead.getFirstLevel("delta")[0]) >> delta;
+                cout << setw(100) << right << "The delta time step is " << delta << endl; 
+            }else{
+                delta = end - start;
+                cout << setw(100) << right << "No delta time step is set, use the default value " << delta << endl; 
+            }
+            if (delta!=0) {
+                count = (end-start)/delta;
+            }else{
+                count = 1;
+            }
+            for (int i = 0; i < count; i++) {
+
+                stringstream.clear();
+                stringstream.str("");
+                stringstream << setw(8) << setfill('0') << i*delta+start ;
+
+                midFileName = stringstream.str();
+                fileName.push_back(shortFileName + "." + midFileName + "." + extension); 
+            }
+
+        }else{
+            count=1;
+            fileName.push_back(shortFileName + "." + extension);
+            cout << "The fileName is " << fileName[0] << endl;
+        }
+
+
+
+
+    }else{
+        viewWindow=true;
+        fileName.push_back(argv[1]);
+        outputDomainAnalysis=true;
+        extension="dat";
+        cout << "Visualize the file " << fileName[0] << endl;
     }
-    else if ( !strcmp( argv[count], "-DAT" ) )
-    {
-      fileName = new char[strlen(argv[count+1])+1];
-      fileType = DAT_FILETYPE;
-      sprintf( fileName, "%s", argv[count+1] );
-      count += 2;
+
+
+
+
+
+
+
+
+
+    if (structRead.firstKeyExist("LOOKUPTABLE")) {
+        choiceColor = structRead.getFirstLevel("lookuptable")[0];
+        cout << setw(100) << right << "Use the lookuptable " << choiceColor << endl; 
+        if (structRead.secondKeyExist(choiceColor,"POINTADD")) {
+            istringstream(structRead.getSecondLevel(choiceColor,"POINTADD")[0]) >> Value >>R >> G >> B >> Alpha; 
+        }
+    }else{
+        cout << "No lookuptable specified, use the default one" << endl;
     }
-    else if ( !strcmp( argv[count], "-Clip") )
-    {
-      clip = 1;
-      count++;
+
+
+
+
+    if (structRead.firstKeyExist("DOMAINVALUE")) {
+        istringstream(structRead.getFirstLevel("domainValue")[0]) >> domainValue;
+        cout << setw(100) << right << "The ferroelectric domain criteria of value is " << domainValue << endl;
+    }else{
+        domainValue = 0.1 ;
+        cout << setw(100) << right << "No ferroelectric domain criteria of value is set, use the default value " << domainValue << endl;
     }
-    else if ( !strcmp( argv[count], "-CompositeRamp" ) )
-    {
-      opacityWindow = atof( argv[count+1] );
-      opacityLevel  = atof( argv[count+2] );
-      blendType = 1;
-      count += 3;
+
+    if (structRead.firstKeyExist("DOMAINANGLE")) {
+        istringstream(structRead.getFirstLevel("domainAngle")[0]) >> domainAngle;
+        cout << setw(100) << right << "The ferroelectric domain criteria of angle is " << domainAngle << endl;
+    }else{
+        domainAngle = 180 ;
+        cout << setw(100) << right << "No ferroelectric domain criteria of angle is set, use the default value " << domainAngle << endl;
     }
-    else if ( !strcmp( argv[count], "-CompositeShadeRamp" ) )
-    {
-      opacityWindow = atof( argv[count+1] );
-      opacityLevel  = atof( argv[count+2] );
-      blendType = 2;
-      count += 3;
+
+
+    cout << "Finished reading the struct.in file" << endl;
+
+
+    FerroDomain ferroDomain;
+    ferroDomain.setStandardValue(domainValue);
+    ferroDomain.setStandardAngle(domainAngle);
+    ferroDomain.printDomainInfo();
+
+
+    cout << "Initialize vtk" << endl;
+
+    // Create the renderer, render window and interactor
+    /* vtkRenderer *renderer = vtkRenderer::New(); */
+    VTK_CREATE(vtkRenderer,renderer);
+    VTK_CREATE(vtkRenderWindow,renWin);
+
+    // Connect it all. Note that funny arithematic on the
+    // SetDesiredUpdateRate - the vtkRenderWindow divides it
+    // allocated time across all renderers, and the renderer
+    // divides it time across all props. If clip is
+    // t[M#Arue then there are two props
+    VTK_CREATE(vtkRenderWindowInteractor,iren);
+    VTK_CREATE(vtkInteractorStyleTrackballCamera,style);
+    // Read the data
+    VTK_CREATE(vtkXMLImageDataReader,reader);
+    VTK_CREATE(vtkImageData,input);
+
+    VTK_CREATE(vtkThreshold,domainThreshold);
+    VTK_CREATE(vtkDataSetMapper,domainMapper);
+    VTK_CREATE(vtkSmoothPolyDataFilter,domainSmooth);
+    VTK_CREATE(vtkPolyDataNormals,normalGenerator);
+    VTK_CREATE(vtkDataSetSurfaceFilter,domainSurface);
+
+    VTK_CREATE(vtkColorTransferFunction,color);
+    VTK_CREATE(vtkPiecewiseFunction,compositeOpacity);
+
+    VTK_CREATE(vtkWindowToImageFilter,windowToImageFilter);
+    VTK_CREATE(vtkPNGWriter,writer);
+
+
+    /* if (!viewWindow) { */
+    if ( count > 1) {
+        vector<string> header(ferroDomain.getDomainTypeCount()+1);
+        header[0]="Index";
+        for (int i = 0; i < ferroDomain.getDomainTypeCount(); i++) {
+            header[i+1]=ferroDomain.getDomainTypeLabel(i); 
+        }
+        domainInfo.setFileName("Domain_Analytics.txt");
+       domainInfo.initializeFile(header); 
     }
-    else if ( !strcmp( argv[count], "-RGB_Composite" ) )
-    {
-      blendType = 6;
-      count += 1;
+    for (int i = 0; i < count; i++) {
+
+        cout <<setw(100) << right << "Start to read data file " << fileName[i] <<endl;
+        if( extension == "vti" )
+        {
+        }
+        else if ( extension == "dat" )
+        {
+
+
+            VectorDomainDataset dat;
+            int datDim[4];
+            dat.setDatFileName(fileName[i]);
+            dat.readDatFile();
+            dat.setOutputDomainAnalysis(outputDomainAnalysis);
+
+            dat.outputVTIFile(ferroDomain,1);
+
+            if (count >1) {
+                vector<double> value(ferroDomain.getDomainTypeCount());
+                for (int j = 0; j < ferroDomain.getDomainTypeCount(); j++) {
+                    value[j]=dat.getDomainPercent(j);
+                }
+                domainInfo.outputWithIndex(i*delta+start,value);
+            }
+
+
+            vtiFileName.push_back(dat.getVTIFileName());
+            imageName.push_back(dat.getLongFileName()+".png");
+            /* dat.getDimension(datDim); */
+            /* std::string vtiFile = dat.getVTIFileName(); */ 
+            /* reader->SetFileName(vtiFile.c_str()); */
+            /* reader->Update(); */
+            /* std::cout << "dat readder successful"<<std::endl; */
+        }
+        else
+        {
+            cout << "Error! Not VTI or DAT!" << endl;
+            exit(EXIT_FAILURE);
+        }
     }
-    else if ( !strcmp( argv[count], "-FrameRate") )
-    {
-      frameRate = atof( argv[count+1] );
-      if ( frameRate < 0.01 || frameRate > 60.0 )
-      {
-        cout << "Invalid frame rate - use a number between 0.01 and 60.0" << endl;
-        cout << "Using default frame rate of 10 frames per second." << endl;
-        frameRate = 10.0;
-      }
-      count += 2;
-    }
-    else if ( !strcmp( argv[count], "-ReductionFactor") )
-    {
-      reductionFactor = atof( argv[count+1] );
-      if ( reductionFactor <= 0.0 || reductionFactor >= 1.0 )
-      {
-        cout << "Invalid reduction factor - use a number between 0 and 1 (exclusive)" << endl;
-        cout << "Using the default of no reduction." << endl;
-        reductionFactor = 1.0;
-      }
-      count += 2;
-    }
-     else if ( !strcmp( argv[count], "-DependentComponents") )
-     {
-      independentComponents=false;
-      count += 1;
-     }
-    else
-    {
-      cout << "Unrecognized option: " << argv[count] << endl;
-      cout << endl;
-      PrintUsage();
-      exit(EXIT_FAILURE);
-    }
-  }
-
-  if ( !dirname && !fileName)
-  {
-    cout << "Error: you must specify a .vtk or .dat data file!" << endl;
-    cout << endl;
-    PrintUsage();
-    exit(EXIT_FAILURE);
-  }
-  
-
-  cout << "Initialize vtk" << endl;
-
-  // Create the renderer, render window and interactor
-  /* vtkRenderer *renderer = vtkRenderer::New(); */
-  VTK_CREATE(vtkRenderer,renderer);
-  VTK_CREATE(vtkRenderWindow,renWin);
-
-  // Connect it all. Note that funny arithematic on the
-  // SetDesiredUpdateRate - the vtkRenderWindow divides it
-  // allocated time across all renderers, and the renderer
-  // divides it time across all props. If clip is
-  // t[M#Arue then there are two props
-  VTK_CREATE(vtkRenderWindowInteractor,iren);
-  VTK_CREATE(vtkInteractorStyleTrackballCamera,style);
- // Read the data
-  VTK_CREATE(vtkXMLImageDataReader,reader);
-  VTK_CREATE(vtkImageData,input);
-
-  VTK_CREATE(vtkThreshold,domainThreshold);
-  VTK_CREATE(vtkDataSetMapper,domainMapper);
-  VTK_CREATE(vtkSmoothPolyDataFilter,domainSmooth);
-  VTK_CREATE(vtkPolyDataNormals,normalGenerator);
-  VTK_CREATE(vtkDataSetSurfaceFilter,domainSurface);
 
 
-
-
-
-  cout <<"STartTo read data file"<<endl;
-  if( fileType == VTI_FILETYPE )
-  {
-    reader->SetFileName(fileName);
-    reader->Update();
-  }
-  else if ( fileType == DAT_FILETYPE )
-  {
-
-
-  VectorDomainDataset dat;
-  int datDim[4];
-  dat.setDatFileName(fileName);
-  dat.readDatFile();
-  
-  dat.outputVTIFile(ferroDomain,1);
-  dat.getDimension(datDim);
-  std::string vtiFile = dat.getVTIFileName(); 
-    reader->SetFileName(vtiFile.c_str());
-    reader->Update();
-    std::cout << "dat readder successful"<<std::endl;
-  }
-  else
-  {
-    cout << "Error! Not VTK or DAT!" << endl;
-    exit(EXIT_FAILURE);
-  }
-
-  input->ShallowCopy(reader->GetOutput());
-
-
-
-  renWin->AddRenderer(renderer);
-  iren->SetRenderWindow(renWin);
-  iren->SetInteractorStyle(style);
-  renWin->Render();
-
-
-  // Create our volume and mapper
-  cout << reader->GetPointArrayStatus(reader->GetPointArrayName(1)) << endl;;
-  domainMapper->SetInputData( input );
-
-
-  // Set the sample distance on the ray to be 1/2 the average spacing
-
-//  VTK_CREATE(vtkCallbackCommand,keypressCallback);
-//  keypressCallback->SetCallback(KeypressCallbackFunction);
-//  keypressCallback->SetClientData(mapper);
-//  iren->AddObserver(vtkCommand::KeyPressEvent,keypressCallback);
-
-
-  // Create our transfer function
-  /* vtkColorTransferFunction *colorFun = vtkColorTransferFunction::New(); */
-  VTK_CREATE(vtkColorTransferFunction,color);
-  /* vtkPiecewiseFunction *opacityFun = vtkPiecewiseFunction::New(); */
-  VTK_CREATE(vtkPiecewiseFunction,compositeOpacity);
-
-  // Create the property and attach the transfer functions
-  /* vtkVolumeProperty *property = vtkVolumeProperty::New(); */
-
-
-std:vector<vtkActor *> actorDomain;
+    vector<vtkActor *> actorDomain;
     for (int i = 0; i < 27; i++) {
         actorDomain.push_back(vtkActor::New());        
     }
 
 
+    for (int m = 0; m < count; m++) {
+
+        cout << "vtk part " << vtiFileName[m] << endl;
+
+        reader->SetFileName(vtiFileName[m].c_str());
+        reader->Update();
+        input->ShallowCopy(reader->GetOutput());
 
 
-  domainThreshold->SetInputConnection(reader->GetOutputPort());
-  domainThreshold->AllScalarsOff();
-  for (int i = 0; i < 27; i++) {
-      domainThreshold->ThresholdBetween(i-0.5,i+0.5);
-      domainThreshold->UpdateWholeExtent();
-      domainSurface->SetInputConnection(domainThreshold->GetOutputPort());
-      domainSurface->UpdateWholeExtent();
-      domainSmooth->SetInputConnection(domainSurface->GetOutputPort());
-      domainSmooth->SetNumberOfIterations(30);
-      domainSmooth->SetRelaxationFactor(0.1);
-      domainSmooth->FeatureEdgeSmoothingOff();
-      domainSmooth->BoundarySmoothingOn();
-      domainSmooth->Update();
-      normalGenerator->SetInputData(domainSmooth->GetOutput());
-      normalGenerator->ComputePointNormalsOn();
-      normalGenerator->ComputeCellNormalsOn();
-      normalGenerator->UpdateWholeExtent();
-      domainMapper->SetInputConnection(normalGenerator->GetOutputPort());
-      domainMapper->ScalarVisibilityOff();
-      domainMapper->Update();
-      actorDomain[i]->SetMapper(domainMapper);
-      actorDomain[i]->GetProperty()->SetColor(ferroDomain.getDomainR(i),ferroDomain.getDomainG(i),ferroDomain.getDomainB(i));
-      actorDomain[i]->GetProperty()->SetOpacity(1);
-      actorDomain[i]->Modified();
-      renderer->AddActor(actorDomain[i]); 
-  }
-  renderer->ResetCamera();
-  renWin->Render();
 
-  /* renWin->SetSize(600,600); */
-  /* iren->Initialize(); */
-  renWin->Render();
-  iren->Start();
+        renWin->AddRenderer(renderer);
+        renWin->Render();
 
-  compositeOpacity->Delete();
-  color->Delete();
 
-  domainMapper->Delete();
-  reader->Delete();
-  renderer->Delete();
-  renWin->Delete();
-  iren->Delete();
-  style->Delete();
+        // Create our volume and mapper
+        /* cout << reader->GetPointArrayStatus(reader->GetPointArrayName(1)) << endl;; */
+        domainMapper->SetInputData( input );
 
-  return 0;
+
+
+
+    domainThreshold->SetInputConnection(reader->GetOutputPort());
+    domainThreshold->AllScalarsOff();
+    for (int i = 0; i < 27; i++) {
+        domainThreshold->ThresholdBetween(i-0.5,i+0.5);
+        domainThreshold->UpdateWholeExtent();
+        domainSurface->SetInputConnection(domainThreshold->GetOutputPort());
+        domainSurface->UpdateWholeExtent();
+        domainSmooth->SetInputConnection(domainSurface->GetOutputPort());
+        domainSmooth->SetNumberOfIterations(30);
+        domainSmooth->SetRelaxationFactor(0.1);
+        domainSmooth->FeatureEdgeSmoothingOff();
+        domainSmooth->BoundarySmoothingOn();
+        domainSmooth->Update();
+        normalGenerator->SetInputData(domainSmooth->GetOutput());
+        normalGenerator->ComputePointNormalsOn();
+        normalGenerator->ComputeCellNormalsOn();
+        normalGenerator->UpdateWholeExtent();
+        domainMapper->SetInputConnection(normalGenerator->GetOutputPort());
+        domainMapper->ScalarVisibilityOff();
+        domainMapper->Update();
+        actorDomain[i]->SetMapper(domainMapper);
+        actorDomain[i]->GetProperty()->SetColor(ferroDomain.getDomainR(i),ferroDomain.getDomainG(i),ferroDomain.getDomainB(i));
+        actorDomain[i]->GetProperty()->SetOpacity(1);
+        actorDomain[i]->Modified();
+        renderer->AddActor(actorDomain[i]); 
+    }
+    renderer->ResetCamera();
+    renWin->Render();
+
+    /* renWin->SetSize(600,600); */
+    /* iren->Initialize(); */
+    if (viewWindow) {
+
+        iren->SetRenderWindow(renWin);
+        iren->SetInteractorStyle(style);
+        iren->Start();
+    }else{
+        cout << "Rendering off screen " << imageName[m] << endl;
+        renWin->SetOffScreenRendering(1);
+        windowToImageFilter->SetInput(renWin);
+        windowToImageFilter->Update();
+        writer->SetFileName(imageName[m].c_str());
+        writer->SetInputConnection(windowToImageFilter->GetOutputPort());
+        writer->Write();
+    }
+    }
+
+    compositeOpacity->Delete();
+    color->Delete();
+
+    domainMapper->Delete();
+    reader->Delete();
+    renderer->Delete();
+    renWin->Delete();
+    iren->Delete();
+    style->Delete();
+
+    return 0;
 }

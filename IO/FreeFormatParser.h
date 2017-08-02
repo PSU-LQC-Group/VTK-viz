@@ -13,8 +13,10 @@ class FreeFormatParser{
         ~FreeFormatParser();
         void setFilename(string);
         void parse();
-        string getFirstLevel(string firstLevelName);
-        string getSecondLevel(string firstLevelName,string secondLevelName);
+        vector<string> getFirstLevel(string firstLevelName);
+        vector<string> getSecondLevel(string firstLevelName,string secondLevelName);
+        bool firstKeyExist(string firstLevelName);
+        bool secondKeyExist(string firstLevelName,string secondLevelName);
 
     private:
         string filename="";

@@ -66,6 +66,35 @@ FerroDomain::FerroDomain():VectorDomain(27){
     domainOrth[24][0]=0;domainOrth[24][1]=-1;domainOrth[24][2]=0;
     domainOrth[25][0]=0;domainOrth[25][1]=0;domainOrth[25][2]=1;
     domainOrth[26][0]=0;domainOrth[26][1]=0;domainOrth[26][2]=-1;
+
+
+    domainTypeLabel[0]  = "    Substrate";
+    domainTypeLabel[1]  = "R1+( 1, 1, 1)";
+    domainTypeLabel[2]  = "R1-(-1,-1,-1)";
+    domainTypeLabel[3]  = "R2+(-1, 1, 1)";
+    domainTypeLabel[4]  = "R2-( 1,-1,-1)";
+    domainTypeLabel[5]  = "R3+(-1,-1, 1)";
+    domainTypeLabel[6]  = "R3-( 1, 1,-1)";
+    domainTypeLabel[7]  = "R4+( 1,-1, 1)";
+    domainTypeLabel[8]  = "R4-(-1, 1,-1)";
+    domainTypeLabel[9]  = "O1+( 1, 1, 0)";
+    domainTypeLabel[10] = "O1-(-1,-1, 0)";
+    domainTypeLabel[11] = "O2+( 1,-1, 0)";
+    domainTypeLabel[12] = "O2-(-1, 1, 0)";
+    domainTypeLabel[13] = "O3+( 1, 0, 1)";
+    domainTypeLabel[14] = "O3-(-1, 0,-1)";
+    domainTypeLabel[15] = "O4+( 1, 0,-1)";
+    domainTypeLabel[16] = "O4-(-1, 0, 1)";
+    domainTypeLabel[17] = "O5+( 0, 1, 1)";
+    domainTypeLabel[18] = "O5-( 0,-1,-1)";
+    domainTypeLabel[19] = "O6+( 0, 1,-1)";
+    domainTypeLabel[20] = "O6-( 0,-1, 1)";
+    domainTypeLabel[21] = "a1+( 1, 0, 0)";
+    domainTypeLabel[22] = "a1-(-1, 0, 0)";
+    domainTypeLabel[23] = "a2+( 0, 1, 0)";
+    domainTypeLabel[24] = "a2-( 0,-1, 0)";
+    domainTypeLabel[25] = " C+( 0, 0, 1)";
+    domainTypeLabel[26] = " C-( 0, 0,-1)";
     }
 
 

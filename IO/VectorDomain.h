@@ -1,7 +1,9 @@
 #include <string>
+#include <Data.h>
 #ifndef VECTORDOMAIN_H
 #define VECTORDOMAIN_H
 #define piValue 3.141592653589
+using namespace std;
 class VectorDomain{
     protected:
         double domainStandardValue;
@@ -9,6 +11,7 @@ class VectorDomain{
         double ** domainRGB;
         double domainStandardAngleRad;
         int domainTypeCount;
+        vector<string> domainTypeLabel;
         /* double * domainPercent; */
 
     public:
@@ -26,5 +29,7 @@ class VectorDomain{
         int getDomainType(double,double,double);
         int getDomainTypeCount();
         void setDomainTypeCount(int) ;
+        void printDomainInfo();
+        string getDomainTypeLabel(int);
 };
 #endif

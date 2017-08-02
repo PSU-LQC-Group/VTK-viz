@@ -26,6 +26,8 @@ class Dataset{
         string getDatFileName();
         string getVTKFileName();
         string getVTIFileName();
+        string getShortFileName();
+        string getLongFileName();
         void setVTKFileName(string);
         void setVTIFileName(string);
         /* void readVTKFile(); */
@@ -35,10 +37,11 @@ class Dataset{
         double **** getData();
         int * getDimension(int *dim);
     protected:
-        string datFileName="";
-        string vtkFileName="";
-        string vtiFileName="";
-        string fileName;
+        string datFileName;
+        string vtkFileName;
+        string vtiFileName;
+        string shortFileName;
+        string longFileName;
         double **** data;
         double * domainPercent;
         int x=0,y=0,z=0,col=0;

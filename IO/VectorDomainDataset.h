@@ -9,6 +9,7 @@
 #include <vtkSmartPointer.h>
 #include <vtkDoubleArray.h>
 #include <vtkPointData.h>
+#include <Data.h>
 
 
 using namespace std;
@@ -39,6 +40,12 @@ class VectorDomainDataset:public Dataset{
           void readDatFile();
           void outputVTIFile(VectorDomain,int);
           void processDomain(VectorDomain,int);
+          void setOutputDomainAnalysisTrue();
+          void setOutputDomainAnalysisFalse();
+          void setOutputDomainAnalysis(bool);
+          double getDomainPercent(int);
+          int getDomainCount(int);
+          int getDomainCountTotal();
     private:
 //        string datFileName="";
 //        string vtkFileName="";
@@ -49,8 +56,11 @@ class VectorDomainDataset:public Dataset{
 //
 //
           double * domainPercent;
-          int *** domainLabel;
+          int *** domainIndex;
+          int * domainCount;
+          int domainCountTotal;
           int domainCol;
+          bool outputDomainAnalysis;
         
 };
 #endif

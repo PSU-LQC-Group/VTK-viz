@@ -5,7 +5,9 @@
 
 using namespace std;
 
-VectorDomainDataset::VectorDomainDataset(){}
+VectorDomainDataset::VectorDomainDataset(){
+    outputDomainAnalysis=false;
+}
 VectorDomainDataset::VectorDomainDataset(string str):Dataset(str){
 }
 VectorDomainDataset::~VectorDomainDataset(){}
@@ -219,21 +221,46 @@ void VectorDomainDataset::readDatFile(){
 
     Dataset::readDatFile();
 
-    cout << "After the base data read" << x << y << z<<endl;
+    /* cout << "After the base data read" << x << y << z<<endl; */
 
-    domainLabel=new int**[x];
+    domainIndex=new int**[x];
     for (int i = 0; i < x; i++) {
-        domainLabel[i]=new int*[y];
+        domainIndex[i]=new int*[y];
         for (int j = 0; j < y; j++) {
-            domainLabel[i][j]=new int[z]; 
+            domainIndex[i][j]=new int[z]{-1}; 
         }
     }
 
     domainCol = col/3;
 
-    
+
 
 }
+
+void VectorDomainDataset::setOutputDomainAnalysisTrue(){
+    outputDomainAnalysis = true;
+}
+
+void VectorDomainDataset::setOutputDomainAnalysisFalse(){
+    outputDomainAnalysis = false;
+}
+
+void VectorDomainDataset::setOutputDomainAnalysis(bool input){
+    outputDomainAnalysis = input;
+}
+
+double VectorDomainDataset::getDomainPercent(int index){
+    return domainPercent[index];
+}
+
+int VectorDomainDataset::getDomainCount(int index){
+    return domainCount[index];
+}
+
+int VectorDomainDataset::getDomainCountTotal(){
+    return domainCountTotal;
+}
+
 
 
 
@@ -241,16 +268,31 @@ void VectorDomainDataset::processDomain(VectorDomain domain,int choice){
 
     int current=0;
     current=(choice-1)*3;
+
+    domainPercent=new double [domain.getDomainTypeCount()]();
+    domainCount=new int [domain.getDomainTypeCount()]();
+    domainCountTotal=0;
     for (int i = 0; i < x; i++) {
         for(int j = 0; j < y; j++){
             for (int k = 0; k < z; k++) {
-                domainLabel[i][j][k]=domain.getDomainType(data[current][i][j][k],data[current+1][i][j][k],data[current+2][i][j][k]);
-                cout <<"The domain type of "<< i << " "<<j<<" "<<k<<" is "<< domainLabel[i][j][k]<<endl;
+                domainIndex[i][j][k]=domain.getDomainType(data[current][i][j][k],data[current+1][i][j][k],data[current+2][i][j][k]);
+                if (domainIndex[i][j][k]!=-1) {
+                    domainCount[domainIndex[i][j][k]]++;
+                }
+                /* cout <<"The domain type of "<< i << " "<<j<<" "<<k<<" is "<< domainLabel[i][j][k]<<endl; */
             }
         }
     }
 
-    domainPercent=new double [domain.getDomainTypeCount()]();
+    for (int i = 0; i < domain.getDomainTypeCount(); i++) {
+        domainCountTotal=domainCountTotal+domainCount[i];
+    }
+    for (int j = 0; j < domain.getDomainTypeCount(); j++) {
+        domainPercent[j]=domainCount[j]/double(domainCountTotal);
+        /* cout << "domain percentage of " << j << " is " << domainPercent[j] << " " <<domainHold[j]<< endl; */ 
+    }
+
+
 
 
 
@@ -264,11 +306,9 @@ void VectorDomainDataset::outputVTIFile(VectorDomain domain,int choice){
     VTK_CREATE(vtkDoubleArray,imageDomainType);
     string tempName;
     int domainNum;
-    int * domainHold;
 
 
     processDomain(domain,choice);
-    domainHold=new int [domain.getDomainTypeCount()]();
 
     imageDomainType->SetNumberOfComponents(1);
     imageDomainType->SetNumberOfTuples(x*y*z);
@@ -278,19 +318,33 @@ void VectorDomainDataset::outputVTIFile(VectorDomain domain,int choice){
         for(int j = 0; j < y; j++){
             for (int k = 0; k < z; k++) {
                 /* domainNum=domain.getDomainType(data[current][i][j][k],data[current+1][i][j][k],data[current+2][i][j][k]); */
-                imageDomainType->SetTuple1(i+j*x+k*x*y,domainLabel[i][j][k]);
-                domainHold[domainLabel[i][j][k]]++;
+                imageDomainType->SetTuple1(i+j*x+k*x*y,domainIndex[i][j][k]);
                 /* cout << "outputing vti file " <<i<<j<<k<< " "<< domainLabel[i][j][k] << " " << domainHold[17] << " " <<domainHold[21] << endl; */ 
             }
         }
     }
     imageData->GetPointData()->AddArray(imageDomainType);
     /* cout << "The domain type amount is "<<domain.getDomainTypeCount()<<endl; */
-    for (int j = 0; j < domain.getDomainTypeCount(); j++) {
-        domainPercent[j]=domainHold[j]/double(x*y*z);
-        /* cout << "domain percentage of " << j << " is " << domainPercent[j] << " " <<domainHold[j]<< endl; */ 
-    }
 
+    if (outputDomainAnalysis) {
+        Data domainInfo;
+        domainInfo.setFileName(longFileName+".txt");
+        vector<string> header(5);
+        vector<double> value(2);
+        header[0] = "Domain index";
+        header[1] = "Domain label";
+        header[2] = "Percentage";
+        header[3] = "Count";
+        header[4] = to_string(domainCountTotal);
+        domainInfo.initializeFile(header);
+        for (int i = 0; i <domain.getDomainTypeCount(); i++) {
+            value[0] = domainPercent[i];
+            value[1] = domainCount[i];
+            domainInfo.outputWithIndexAndName(i,domain.getDomainTypeLabel(i),value); 
+        }
+
+
+    }
 
     /* cout << "The domain type amount is "<<domainCol<<endl; */
 
@@ -311,7 +365,7 @@ void VectorDomainDataset::outputVTIFile(VectorDomain domain,int choice){
         imageData->GetPointData()->AddArray(imageDataHold[m]);
     }
 
-        VTK_CREATE(vtkXMLImageDataWriter,writer);
+    VTK_CREATE(vtkXMLImageDataWriter,writer);
     writer->SetFileName(vtiFileName.c_str());
     writer->SetInputData(imageData);
     writer->Write();

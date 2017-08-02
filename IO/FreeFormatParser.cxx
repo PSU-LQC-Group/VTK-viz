@@ -19,31 +19,67 @@ void FreeFormatParser::setFilename(string name){
     filename=name;
 }
 
-string FreeFormatParser::getFirstLevel(string firstLevelName){
-    string value="";
+vector<string> FreeFormatParser::getFirstLevel(string firstLevelName){
+    vector<string> value;
     transform(firstLevelName.begin(),firstLevelName.end(),firstLevelName.begin(),::toupper);
     for (int i = 0; i < firstLevelLength; i++) {
         /* cout << "compare fisrt " << firstLevel[i][0] << firstLevelName <<endl; */
         if(firstLevel[i][0]==firstLevelName){
             /* cout << "Inside the correct part" << endl; */
-            value=firstLevel[i][1];
-            break;
+            value.push_back(firstLevel[i][1]);
+            /* break; */
         }
     }
     return value;
 }
 
-string FreeFormatParser::getSecondLevel(string firstLevelName,string secondLevelName){
-    string value="";
+bool FreeFormatParser::firstKeyExist(string firstLevelName){
+    bool value=false;
+    for (int i = 0; i < firstLevelLength; i++) {
+        /* cout << "compare fisrt " << firstLevel[i][0] << firstLevelName <<endl; */
+        if(firstLevel[i][0]==firstLevelName){
+            value=true;
+            break;
+        }
+    }
+
+    return value;
+}
+
+vector<string> FreeFormatParser::getSecondLevel(string firstLevelName,string secondLevelName){
+    vector<string> value;
     transform(secondLevelName.begin(),secondLevelName.end(),secondLevelName.begin(),::toupper);
     for (int i = 0; i < secondLevelLength; i++) {
         /* cout << "compare second" << secondLevel[i][0] << secondLevel[i][1] << firstLevelName << secondLevelName <<endl; */
         if(secondLevel[i][0]==firstLevelName && secondLevel[i][1]==secondLevelName){
             /* cout << "Inside the correct part" << secondLevel[i][2] << endl; */
-            value=secondLevel[i][2];
+            value.push_back(secondLevel[i][2]);
+            /* break; */
+        }
+    }
+    return value;
+
+}
+
+bool FreeFormatParser::secondKeyExist(string firstLevelName,string secondLevelName){
+    bool value=false,first=false,second=false;
+
+    for (int i = 0; i < firstLevelLength; i++) {
+        /* cout << "compare second" << secondLevel[i][0] << secondLevel[i][1] << firstLevelName << secondLevelName <<endl; */
+        if(firstLevel[i][0]==firstLevelName){
+            first=true;
             break;
         }
     }
+
+
+    for (int i = 0; i < secondLevelLength; i++) {
+        if(secondLevel[i][0]==firstLevelName && secondLevel[i][1]==secondLevelName){
+            second=true;
+            break;
+        }
+    }
+    value = first && second;
     return value;
 
 }

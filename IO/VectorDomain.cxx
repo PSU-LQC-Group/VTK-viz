@@ -11,6 +11,7 @@ VectorDomain::VectorDomain(int length):domainTypeCount(length){
    for (int i = 0; i < domainTypeCount; i++) {
        domainRGB[i] = new double[3];
        domainOrth[i] = new double[3];
+       domainTypeLabel.push_back("Label_"+i);
        /* domainPercent[i] = 0; */
    }
 
@@ -136,4 +137,34 @@ void VectorDomain::setStandardRad(double rad){
 
 int VectorDomain::getDomainTypeCount(){
   return domainTypeCount;
+}
+
+void VectorDomain::printDomainInfo(){
+    Data domain;
+    vector<string> header(8);
+    vector<double> value(6);
+    domain.setFileName("Vector_Domain.txt");
+    header[0] = "Domain index";
+    header[1] = "Domain label";
+    header[2] = "Component X";
+    header[3] = "Component Y";
+    header[4] = "Component Z";
+    header[5] = "Color R";
+    header[6] = "Color G";
+    header[7] = "Color B";
+    domain.initializeFile(header);
+    for (int i = 0; i < domainTypeCount; i++) {
+        value[0] = domainOrth[i][0];
+        value[1] = domainOrth[i][1];
+        value[2] = domainOrth[i][2];
+        value[3] = domainRGB[i][0];
+        value[4] = domainRGB[i][1];
+        value[5] = domainRGB[i][2];
+       domain.outputWithIndexAndName(i,domainTypeLabel[i],value); 
+    }
+}
+
+
+std::string VectorDomain::getDomainTypeLabel(int index){
+    return domainTypeLabel[index];
 }

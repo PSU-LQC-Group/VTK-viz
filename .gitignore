@@ -1,5 +1,6 @@
 # bin
 bin
+
 # Prerequisites
 *.d
 
@@ -43,6 +44,7 @@ Makefile
 *.dat
 *.vtk
 *.vti
+*.txt
 
 # Include IO's makefile
 !IO/Makefile

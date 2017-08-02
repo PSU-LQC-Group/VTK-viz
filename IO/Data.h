@@ -17,6 +17,8 @@ class Data{
         std::string getFileName();
         void outputWithoutIndex(std::vector<double>);
         void outputWithIndex(int,std::vector<double>);
+        void outputWithIndexAndName(int,std::string,std::vector<double>);
+        void outputWithName(std::string,std::vector<double>);
 
 
 };
