@@ -12,7 +12,7 @@ class FreeFormatParser{
         FreeFormatParser(string);
         ~FreeFormatParser();
         void setFilename(string);
-        void parse();
+        bool parse();
         vector<string> getFirstLevel(string firstLevelName);
         vector<string> getSecondLevel(string firstLevelName,string secondLevelName);
         bool firstKeyExist(string firstLevelName);

@@ -45,6 +45,7 @@ Makefile
 *.vtk
 *.vti
 *.txt
+*.png
 
 # Include IO's makefile
 !IO/Makefile

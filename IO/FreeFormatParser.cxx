@@ -65,8 +65,8 @@ bool FreeFormatParser::secondKeyExist(string firstLevelName,string secondLevelNa
     bool value=false,first=false,second=false;
 
     for (int i = 0; i < firstLevelLength; i++) {
-        /* cout << "compare second" << secondLevel[i][0] << secondLevel[i][1] << firstLevelName << secondLevelName <<endl; */
-        if(firstLevel[i][0]==firstLevelName){
+        /* cout << "compare second" << i << " "<<secondLevel[i][0] << secondLevel[i][1] << firstLevelName << secondLevelName <<endl; */
+        if(secondLevel[i][0]==firstLevelName){
             first=true;
             break;
         }
@@ -84,11 +84,11 @@ bool FreeFormatParser::secondKeyExist(string firstLevelName,string secondLevelNa
 
 }
 
-void FreeFormatParser::parse(){
+bool FreeFormatParser::parse(){
     string line;
     string firstId,secondId,value,comment;
-    ifstream freeFile(filename);
-    if(freeFile.is_open()){
+    ifstream freeFile(filename,std::ifstream::in);
+    if(freeFile){
         firstLevelLength=0;
         secondLevelLength=0;
         while(getline(freeFile,line)){
@@ -124,7 +124,9 @@ void FreeFormatParser::parse(){
             }
         }
         freeFile.close();
+        return true;
     }else{
+        return false;
         /* std::cout << filename << " does not exist" << std::endl; */
     }
 }
