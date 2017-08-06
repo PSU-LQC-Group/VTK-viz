@@ -55,6 +55,13 @@ string Dataset::getVTKFileName(){
 string Dataset::getVTIFileName(){
     return vtiFileName;
 }
+vector<double> Dataset::getMin(){
+    return valueMin;
+ }
+
+vector<double> Dataset::getMax(){
+    return valueMax;
+}
 
 void Dataset::setVTKFileName(string str){
     vtkFileName=str;
@@ -106,11 +113,16 @@ void Dataset::readDatFile(){
     getline(input,line);
     iss.str(line);
     /* cout << "one line" << line<<endl; */
+    iss >> hold >> hold >> hold;
     while (iss >> hold){
-        columnCount++;
+        /* columnCount++; */
+        col++;
+        valueMin.push_back(hold);
+        valueMax.push_back(hold);
+
         /* cout << hold << endl; */
     }
-    col=columnCount-3;
+    /* col=columnCount-3; */
     input.close();
 
     /* cout << "Inside the base dataset "<<x<<y<<z<<col<<endl; */
@@ -137,6 +149,8 @@ void Dataset::readDatFile(){
     // Skip the first line
     getline(input,line);
 
+    vector<double> minHold(col);
+    vector<double> maxHold(col);
     // Fill in the data
     for (int i = 0; i < x; i++) {
         for (int j = 0; j < y; j++) {
@@ -153,8 +167,15 @@ void Dataset::readDatFile(){
                 for (int m = 0; m < col; m++) {
                     iss >> hold;
                     data[m][i][j][k]=hold;
+                    if (hold > valueMax[m]) {
+                        valueMax[m] = hold;
+                    }
+                    if (hold < valueMin[m]) {
+                        valueMin[m] = hold;
+                    }
                     /* cout << data[i][j][k][m] <<" "<<hold<<" "; */
                 }
+
                 /* cout << endl; */
              }
         }

@@ -273,23 +273,6 @@ int main(int argc, char *argv[])
 
     // Create the renderer, render window and interactor
     /* vtkRenderer *renderer = vtkRenderer::New(); */
-    VTK_CREATE(vtkRenderer,renderer);
-    VTK_CREATE(vtkRenderWindow,renWin);
-
-    VTK_CREATE(vtkRenderWindowInteractor,iren);
-    VTK_CREATE(vtkInteractorStyleTrackballCamera,style);
-    // Read the data
-    VTK_CREATE(vtkXMLImageDataReader,reader);
-    VTK_CREATE(vtkImageData,input);
-    VTK_CREATE(vtkCamera,camera);
-
-
-    VTK_CREATE(vtkColorTransferFunction,color);
-    VTK_CREATE(vtkPiecewiseFunction,compositeOpacity);
-
-    VTK_CREATE(vtkWindowToImageFilter,windowToImageFilter);
-    VTK_CREATE(vtkPNGWriter,writer);
-
 
     /* If there are more than one file to visualize
      * then, instead of output the domain analytics data for each file
@@ -426,6 +409,25 @@ int main(int argc, char *argv[])
     /* Start to visualize for each file */
     for (int m = 0; m < count; m++) {
 
+    VTK_CREATE(vtkRenderer,renderer);
+    VTK_CREATE(vtkRenderWindow,renWin);
+
+    VTK_CREATE(vtkRenderWindowInteractor,iren);
+    VTK_CREATE(vtkInteractorStyleTrackballCamera,style);
+    // Read the data
+    VTK_CREATE(vtkXMLImageDataReader,reader);
+    VTK_CREATE(vtkImageData,input);
+    VTK_CREATE(vtkCamera,camera);
+
+
+    VTK_CREATE(vtkColorTransferFunction,color);
+    VTK_CREATE(vtkPiecewiseFunction,compositeOpacity);
+
+    VTK_CREATE(vtkWindowToImageFilter,windowToImageFilter);
+    VTK_CREATE(vtkPNGWriter,writer);
+
+
+
         vector<vtkActor *> actorDomain;
         vector<vtkDataSetMapper *> domainMapper;
         for (int i = 0; i < domainTypeCount; i++) {
@@ -539,15 +541,15 @@ int main(int argc, char *argv[])
         }
     }
 
-    compositeOpacity->Delete();
-    color->Delete();
-
-    /* delete domainMapper []; */
-    reader->Delete();
-    renderer->Delete();
-    renWin->Delete();
-    iren->Delete();
-    style->Delete();
+//    compositeOpacity->Delete();
+//    color->Delete();
+//
+//    /* delete domainMapper []; */
+//    reader->Delete();
+//    renderer->Delete();
+//    renWin->Delete();
+//    iren->Delete();
+//    style->Delete();
 
     return 0;
 }

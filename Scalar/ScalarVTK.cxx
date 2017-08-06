@@ -1,19 +1,18 @@
 /*=========================================================================
 
-  Program:   Visualization Toolkit
-  Module:    FixedPointVolumeRayCastMapperCT.cxx
+Program:   Visualization Toolkit
+Module:    FixedPointVolumeRayCastMapperCT.cxx
 
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
+Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+All rights reserved.
+See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
 
-     This software is distributed WITHOUT ANY WARRANTY; without even
-     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-     PURPOSE.  See the above copyright notice for more information.
+This software is distributed WITHOUT ANY WARRANTY; without even
+the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE.  See the above copyright notice for more information.
 
 =========================================================================*/
 // VTK includes
-#include "vtkBoxWidget.h"
 #include "vtkCamera.h"
 #include "vtkCommand.h"
 #include "vtkColorTransferFunction.h"
@@ -36,11 +35,19 @@
 #include "vtkPointData.h"
 #include "vtkInteractorStyleTrackballCamera.h"
 
+#include "vtkScalarBarWidget.h"
+#include "vtkScalarBarActor.h"
+#include "vtkCamera.h"
+#include "vtkWindowToImageFilter.h"
+#include "vtkPNGWriter.h"
+ 
+
 #include <FreeFormatOneLine.h>
 #include <FreeFormatParser.h>
 #include <Dataset.h>
 #include <sstream>
 #include <iostream>
+#include <iomanip>
 
 #define VTI_FILETYPE 1
 #define DAT_FILETYPE 2
@@ -50,46 +57,7 @@
 
 using namespace std;
 
-void PrintUsage()
-{
-  cout << "Usage: " << endl;
-  cout << endl;
-  cout << "  ScalarVTK <options>" << endl;
-  cout << endl;
-  cout << "where options may include: " << endl;
-  cout << endl;
-  cout << "  -VTK <filename>" << endl;
-  cout << "  -DAT <filename>" << endl;
-  cout << "  -Clip" << endl;
-  cout << "  -CompositeRamp <window> <level>" << endl;
-  cout << "  -CompositeShadeRamp <window> <level>" << endl;
-  cout << "  -FrameRate <rate>" << endl;
-  cout << "  -DataReduction <factor>" << endl;
-  cout << endl;
-  cout << "You must use either the -DICOM option to specify the directory where" << endl;
-  cout << "the data is located or the -VTI or -MHA option to specify the path of a .vti file." << endl;
-  cout << endl;
-  cout << "By default, the program assumes that the file has independent components," << endl;
-  cout << "use -DependentComponents to specify that the file has dependent components." << endl;
-  cout << endl;
-  cout << "Use the -Clip option to display a cube widget for clipping the volume." << endl;
-  cout << "Use the -FrameRate option with a desired frame rate (in frames per second)" << endl;
-  cout << "which will control the interactive rendering rate." << endl;
-  cout << "Use the -DataReduction option with a reduction factor (greater than zero and" << endl;
-  cout << "less than one) to reduce the data before rendering." << endl;
-  cout << "Use one of the remaining options to specify the blend function" << endl;
-  cout << "and transfer functions. The -MIP option utilizes a maximum intensity" << endl;
-  cout << "projection method, while the others utilize compositing. The" << endl;
-  cout << "-CompositeRamp option is unshaded compositing, while the other" << endl;
-  cout << "compositing options employ shading." << endl;
-  cout << endl;
-  cout << "Note: MIP, CompositeRamp, CompositeShadeRamp, CT_Skin, CT_Bone," << endl;
-  cout << "and CT_Muscle are appropriate for DICOM data. MIP, CompositeRamp," << endl;
-  cout << "and RGB_Composite are appropriate for RGB data." << endl;
-  cout << endl;
-  cout << "Example: FixedPointVolumeRayCastMapperCT -DICOM CTNeck -MIP 4096 1024" << endl;
-  cout << endl;
-}
+
 
 void KeypressCallbackFunction(vtkObject* caller, long unsigned int eventId, void* clientData, void* callData){
     /* VTK_CREATE(vtkSmartVolumeMapper,mapper); */
@@ -101,248 +69,427 @@ void KeypressCallbackFunction(vtkObject* caller, long unsigned int eventId, void
     int colNum=map->GetInput()->GetPointData()->GetNumberOfArrays();
     cout << "Pressed:" << number<<colNum<<endl;
     if (number<=colNum-1 && number >=0) {
-    map->SelectScalarArray(number);
-    map->Update();
+        map->SelectScalarArray(number);
+        map->Update();
     }
 
 }
 
 int main(int argc, char *argv[])
 {
-  // Parse the parameters
+    // Parse the parameters
 
-  int count = 1;
-  char *dirname = NULL;
-  double opacityWindow = 4096;
-  double opacityLevel = 2048;
-  int blendType = 0;
-  int clip = 0;
-  double reductionFactor = 1.0;
-  double frameRate = 10.0;
-  char *fileName=0;
-  int fileType=0;
-  char **firstLevel[300],**secondLevel[300];
+    char *dirname = NULL;
+    double opacityWindow = 4096;
+    double opacityLevel = 2048;
+    int blendType = 0;
+    int clip = 0;
+    vector<string> fileName;
+    vector<string> vtiFileName;
+    vector<string> imageName;
 
-  bool independentComponents=true;
+    bool fileFormatSTD=true;
+    bool viewWindow = true;
+    bool outputScalarAnalysis = false;
+    double R,G,B,Alpha,Value;
+    string shortFileName="",midFileName="",extension="";
 
+    int start=0,delta=0,end=0,count=1;
+    double focalX,focalY,focalZ;
+    double positionX,positionY,positionZ;
+    double upX,upY,upZ;
+    string cameraName;
+    int datDim[4];
+    int printWidth=80;
 
-  FreeFormatParser b;
-  b.setFilename("struct.in");
-  b.parse();
-  std::cout << "The first Level"<<b.getFirstLevel("Plane") << endl;
-  string c=b.getSecondLevel("COLUMN1","SHAPE"); 
-  std::cout << "The second level" << c<< endl;
-  int x;
-  istringstream(c) >> x;
-  cout << "x="<<x<<endl;
-  double m,n,p;
-  istringstream(b.getFirstLevel("simdim")) >> m >> n >> p;
-  cout << "mnp="<<m<<n<<p<<endl;
+    double reductionFactor = 1.0;
+    double frameRate = 10.0;
+    int fileType=0;
+    char **firstLevel[300],**secondLevel[300];
 
+    bool independentComponents=true;
+    vector<double*> lookUpTable;
+    double colorHold[5];
+    bool controlFileExist=false;
+    bool showLegend=true;
+    int colorCount=0;
+    string choiceColor;
 
-  
+    ostringstream stringstream;
 
-  while ( count < argc )
-  {
-    if ( !strcmp( argv[count], "?" ) )
-    {
-      PrintUsage();
-      exit(EXIT_SUCCESS);
+    FreeFormatParser structRead;
+    structRead.setFilename("visual.in");
+    controlFileExist=structRead.parse();
+
+    if (controlFileExist) {
+        cout << "Start to read the visual.in file" << endl;
+    }else if(argc>1){
+        cout << "Get parameter from command line" << endl;
+    }else{
+        cout << "Either the visual.in file need to be given or a arguement is needed by the program" << endl;
+        exit(-1);
     }
-    else if ( !strcmp( argv[count], "-VTI" ) )
-    {
-      fileName = new char[strlen(argv[count+1])+1];
-      fileType = VTI_FILETYPE;
-      sprintf( fileName, "%s", argv[count+1] );
-      count += 2;
+
+
+    if (structRead.firstKeyExist("LSTDFORMAT")) {
+        istringstream(structRead.getFirstLevel("LSTDFORMAT")[0]) >> boolalpha >>  fileFormatSTD;
+        cout << setw(printWidth) << right << "Choose to use the standard dat format " << boolalpha << fileFormatSTD << endl;
+    }else{
+        cout << setw(printWidth) << right << "No value of LSTDFORMAT is set, use the default value of " << fileFormatSTD << endl;
     }
-    else if ( !strcmp( argv[count], "-DAT" ) )
-    {
-      fileName = new char[strlen(argv[count+1])+1];
-      fileType = DAT_FILETYPE;
-      sprintf( fileName, "%s", argv[count+1] );
-      count += 2;
+
+
+
+    /* cout << argc << "argc" << endl; */
+    /* If no filename is passed using arguement, 
+     * then read FILENAME, EXTENSION, START, DELTA, END
+     * from the struct.in file*/
+
+    if (argc==1) {
+        viewWindow=false;
+        outputScalarAnalysis=false;
+
+        if (structRead.firstKeyExist("FILENAME")) {
+            shortFileName = structRead.getFirstLevel("FILENAME")[0]; 
+            cout << setw(printWidth) << right << "The common file name is " << shortFileName << endl;
+        }else{
+            cout << "!!!!!!!!!!!Error!!!!!!!!!!!" << endl;
+            cout << "The FILENAME is not set yet" << endl;
+            cout << "!!!!!!!!!!!Error!!!!!!!!!!!" << endl;
+            exit(-1);
+        }
+
+
+        if (structRead.firstKeyExist("EXTENSION")) {
+            extension = structRead.getFirstLevel("EXTENSION")[0];
+            cout << setw(printWidth) << right << "The data extension is " << extension << endl;
+        }else{
+            extension = "dat";
+            cout << setw(printWidth) << right << "No extension is specified, use the default one " << extension << endl;
+        }
+
+
+        if (fileFormatSTD) {
+            if (structRead.firstKeyExist("START")) {
+                istringstream(structRead.getFirstLevel("start")[0]) >> start ;
+                cout << setw(printWidth) << right << "The start time step is " << start << endl; 
+            }else{
+                cout << setw(printWidth) << right << "No initial time step set, use the default value " << start << endl;
+            }
+            if (structRead.firstKeyExist("END")) {
+                istringstream(structRead.getFirstLevel("end")[0]) >> end;
+                cout << setw(printWidth) << right << "The end time step is " << end << endl; 
+            }else{
+                cout << setw(printWidth) << right << "No end time step set, use the default value " << end << endl;
+            }
+            if (structRead.firstKeyExist("DELTA")) {
+                istringstream(structRead.getFirstLevel("delta")[0]) >> delta;
+                cout << setw(printWidth) << right << "The delta time step is " << delta << endl; 
+            }else{
+                delta = end - start;
+                cout << setw(printWidth) << right << "No delta time step is set, use the default value " << delta << endl; 
+            }
+            if (delta!=0) {
+                count = (end-start)/delta + 1;
+            }else{
+                count = 1;
+            }
+            for (int i = 0; i < count; i++) {
+
+                stringstream.clear();
+                stringstream.str("");
+                stringstream << setw(8) << setfill('0') << i*delta+start ;
+
+                midFileName = stringstream.str();
+                fileName.push_back(shortFileName + "." + midFileName + "." + extension); 
+            }
+
+        }else{
+            count=1;
+            fileName.push_back(shortFileName + "." + extension);
+            cout << setw(printWidth) << right << "The fileName is " << fileName[0] << endl;
+        }
+
+        cout << setw(printWidth) << right << "Numbers of file to be visualized " << count << endl;
+
+
+    }else{
+        viewWindow=true;
+        fileName.push_back(argv[1]);
+        outputScalarAnalysis=true;
+        extension=fileName[0].substr(fileName[0].find_last_of(".")+1);
+        cout << setw(printWidth) << "Visualize the file " << fileName[0] << endl;
+        cout << setw(printWidth) << "File extension is " << extension << endl;
     }
-    else if ( !strcmp( argv[count], "-Clip") )
-    {
-      clip = 1;
-      count++;
+
+    if (structRead.firstKeyExist("SHOWLEGEND")) {
+        istringstream(structRead.getFirstLevel("SHOWLEGEND")[0]) >> boolalpha >>  showLegend;
+        cout << setw(printWidth) << right << "Choose to use show the scalar legend bar " << boolalpha << showLegend << endl;
+    }else{
+        cout << setw(printWidth) << right << "Default is showing the scalar legend bar " << showLegend << endl;
     }
-    else if ( !strcmp( argv[count], "-CompositeRamp" ) )
-    {
-      opacityWindow = atof( argv[count+1] );
-      opacityLevel  = atof( argv[count+2] );
-      blendType = 1;
-      count += 3;
+
+
+
+
+    cout << "Finished reading the visual.in file." << endl;
+
+
+    cout << "Initialize vtk." << endl;
+    // Create the renderer, render window and interactor
+    /* vtkRenderer *renderer = vtkRenderer::New(); */
+
+
+    if (count > 1) {
+        // a place holder for the future scalar data analysis
     }
-    else if ( !strcmp( argv[count], "-CompositeShadeRamp" ) )
-    {
-      opacityWindow = atof( argv[count+1] );
-      opacityLevel  = atof( argv[count+2] );
-      blendType = 2;
-      count += 3;
+
+    for (int i = 0; i < count; i++) {
+
+        cout <<setw(printWidth) << right << "Start to read data file " << fileName[i] <<endl;
+        if( extension == "vti" )
+        {
+            vtiFileName.push_back(fileName[i]);
+            imageName.push_back(fileName[i].substr(0,fileName[i].find_last_of("."))+".png");
+        }
+        else if ( extension == "dat" )
+        {
+            Dataset dat;
+            dat.setDatFileName(fileName[i]);
+            dat.readDatFile();
+            dat.getDimension(datDim);
+
+            dat.outputVTIFile();
+
+            vtiFileName.push_back(dat.getVTIFileName());
+            imageName.push_back(dat.getLongFileName()+".png");
+        }
+        else
+        {
+            cout << "Error! Not VTI or DAT!" << endl;
+            exit(EXIT_FAILURE);
+        }
     }
-    else if ( !strcmp( argv[count], "-RGB_Composite" ) )
-    {
-      blendType = 6;
-      count += 1;
+
+
+    focalX = datDim[0]/2;
+    focalY = datDim[1]/2;
+    focalZ = datDim[2]/2;
+    positionX = datDim[0]*2;
+    positionY = datDim[1]*2;
+    positionZ = datDim[2]*2;
+    upX = -1;
+    upY = -1;
+    upZ = 2;
+
+    /* The LOOKUPTABLE, and some camera related values are 
+     * set after reading the file because the they need some 
+     * information of the data*/
+    if (structRead.firstKeyExist("LOOKUPTABLE")) {
+        choiceColor = structRead.getFirstLevel("lookuptable")[0];
+        cout << setw(printWidth) << right << "Use the lookuptable " << choiceColor << endl; 
+        if (structRead.secondKeyExist(choiceColor,"POINTADD")) {
+            colorCount = structRead.getSecondLevel(choiceColor,"POINTADD").size();
+            for (int i = 0; i < colorCount; i++) {
+                istringstream(structRead.getSecondLevel(choiceColor,"POINTADD")[i]) >> Value >>R >> G >> B >> Alpha; 
+                colorHold[0] = Value;
+                colorHold[1] = R;
+                colorHold[2] = G;
+                colorHold[3] = B;
+                colorHold[4] = Alpha;
+                lookUpTable.push_back(colorHold);
+                cout << setw(printWidth) << right << "Add color pivot " << Value << " " << R << " " << G << " " << " " << B << " " << Alpha << endl;
+
+            }
+        }
+    }else{
+        cout << setw(printWidth) << right << "No lookuptable specified, use the default one" << endl;
     }
-    else if ( !strcmp( argv[count], "-FrameRate") )
-    {
-      frameRate = atof( argv[count+1] );
-      if ( frameRate < 0.01 || frameRate > 60.0 )
-      {
-        cout << "Invalid frame rate - use a number between 0.01 and 60.0" << endl;
-        cout << "Using default frame rate of 10 frames per second." << endl;
-        frameRate = 10.0;
-      }
-      count += 2;
+
+    if (structRead.firstKeyExist("CAMERA")) {
+        cameraName = structRead.getFirstLevel("CAMERA")[0];
+        cout << setw(printWidth) << right << "Choose to use the camera " << cameraName << endl;
+        if (structRead.secondKeyExist(cameraName,"FOCAL")) {
+            istringstream(structRead.getSecondLevel(cameraName,"FOCAL")[0]) >> focalX >> focalY >> focalZ;
+            cout << setw(printWidth) << right << "Camera focal point set to " << focalX << " " << focalY << " " <<focalZ << endl;
+        }else{
+            cout << setw(printWidth) << right << "Use default value for camera focal point "<< focalX << " " << focalY << " " <<focalZ << endl;
+        }
+
+        if (structRead.secondKeyExist(cameraName,"POSITION")) {
+            istringstream(structRead.getSecondLevel(cameraName,"POSITION")[0]) >> positionX >> positionY >> positionZ;
+            cout << setw(printWidth) << right << "Camera position set to " << positionX << " " << positionY << " " <<positionZ << endl;
+        }else{
+            cout << setw(printWidth) << right << "Use default value for camera position "<< positionX << " " << positionY << " " <<positionZ << endl;
+        }
+
+        if (structRead.secondKeyExist(cameraName,"UP")) {
+            istringstream(structRead.getSecondLevel(cameraName,"UP")[0]) >> upX >> upY >> upZ;
+            cout << setw(printWidth) << right << "Camera up direction set to " << upX << " " << upY << " " <<upZ << endl;
+        }else{
+            cout << setw(printWidth) << right << "Use default value for camera up direction "<< upX << " " << upY << " " <<upZ << endl;
+        }
+
+
+    }else{
+        cout << setw(printWidth) << right << "No camera specified, use the default one" << endl;
     }
-    else if ( !strcmp( argv[count], "-ReductionFactor") )
-    {
-      reductionFactor = atof( argv[count+1] );
-      if ( reductionFactor <= 0.0 || reductionFactor >= 1.0 )
-      {
-        cout << "Invalid reduction factor - use a number between 0 and 1 (exclusive)" << endl;
-        cout << "Using the default of no reduction." << endl;
-        reductionFactor = 1.0;
-      }
-      count += 2;
+
+    for (int m = 0; m < count; m++) {
+
+        VTK_CREATE(vtkRenderer,renderer);
+        VTK_CREATE(vtkRenderWindow,renWin);
+
+        // Connect it all. Note that funny arithematic on the
+        // SetDesiredUpdateRate - the vtkRenderWindow divides it
+        // allocated time across all renderers, and the renderer
+        // divides it time across all props. If clip is
+        // true then there are two props
+        VTK_CREATE(vtkRenderWindowInteractor,iren);
+        VTK_CREATE(vtkInteractorStyleTrackballCamera,style);
+        // Read the data
+        VTK_CREATE(vtkXMLImageDataReader,reader);
+        VTK_CREATE(vtkImageData,input);
+
+        VTK_CREATE(vtkVolume,volume);
+        VTK_CREATE(vtkSmartVolumeMapper,mapper);
+        VTK_CREATE(vtkColorTransferFunction,color);
+        VTK_CREATE(vtkPiecewiseFunction,compositeOpacity);
+        VTK_CREATE(vtkVolumeProperty,property);
+
+        VTK_CREATE(vtkScalarBarWidget,scalarLegendWidget);
+        VTK_CREATE(vtkScalarBarActor,scaleBarActor);
+        VTK_CREATE(vtkCamera,camera);
+        VTK_CREATE(vtkWindowToImageFilter,windowToImageFilter);
+        VTK_CREATE(vtkPNGWriter,writer);
+
+    VTK_CREATE(vtkCallbackCommand,keypressCallback);
+    keypressCallback->SetCallback(KeypressCallbackFunction);
+    keypressCallback->SetClientData(mapper);
+
+
+        
+
+
+
+        cout << setw(printWidth) << right << "Visualizing file " << vtiFileName[m] << endl;
+        reader -> SetFileName(vtiFileName[m].c_str());
+        reader->Update();
+//        reader->GetOutput()->GetPointData()->GetScalars()->GetRange(scalarRange);
+//        if (colorCount == 0) {
+//        colorHold[0] = scalarMin;
+//        colorHold[1] = 0;
+//        colorHold[2] = 0;
+//        colorHold[3] = 1.0;
+//        colorHold[4] = 1.0;
+//        lookUpTable.push_back(colorHold);
+//        colorHold[0] = (scalarMin+scalarMax)/2.0;
+//        colorHold[1] = 0;
+//        colorHold[2] = 1.0;
+//        colorHold[3] = 0.0;
+//        colorHold[4] = 1.0;
+//        lookUpTable.push_back(colorHold);
+//        colorHold[0] = scalarMax;
+//        colorHold[1] = 1.0;
+//        colorHold[2] = 0.0;
+//        colorHold[3] = 0.0;
+//        colorHold[4] = 1.0;
+//        lookUpTable.push_back(colorHold);
+//        }
+
+
+        /* input->ShallowCopy(reader->GetOutput()); */
+
+        // Create our volume and mapper
+        /* cout << reader->GetPointArrayStatus(reader->GetPointArrayName(1)) << endl;; */
+        mapper->SetInputData( reader->GetOutput() );
+        mapper->SetBlendModeToComposite();
+
+
+        // Set the sample distance on the ray to be 1/2 the average spacing
+
+
+
+        // Create our transfer function
+        /* vtkColorTransferFunction *colorFun = vtkColorTransferFunction::New(); */
+        /* vtkPiecewiseFunction *opacityFun = vtkPiecewiseFunction::New(); */
+
+        // Create the property and attach the transfer functions
+        /* vtkVolumeProperty *property = vtkVolumeProperty::New(); */
+        /* property->ShadeOff(); */
+
+        if (colorCount>0) {
+        for (int i = 0; i < lookUpTable.size(); i++) {
+            compositeOpacity->AddPoint(lookUpTable[i][0],lookUpTable[i][4]);
+            color->AddRGBPoint(lookUpTable[i][0],lookUpTable[i][1],lookUpTable[i][2],lookUpTable[i][3]);
+        }
+        property->SetInterpolationType(VTK_LINEAR_INTERPOLATION);
+        property->SetScalarOpacity(compositeOpacity); // composite first.
+        property->SetColor(color);
+        // connect up the volume to the property and the mapper
+        volume->SetProperty( property );
+        }
+        volume->SetMapper( mapper );
+
+        mapper->SetScalarModeToUsePointFieldData();
+        mapper->SelectScalarArray(5);
+        mapper->Update();
+        volume->Update();
+        renderer->AddViewProp( volume );
+
+        mapper->SetRequestedRenderModeToRayCast();
+        renderer->SetActiveCamera(camera);
+
+        renWin->AddRenderer(renderer);
+        /* renWin->SetSize(600,600); */
+        /* iren->Initialize(); */
+        scalarLegendWidget->SetScalarBarActor(scaleBarActor);
+        scalarLegendWidget->ResizableOn();
+            if (showLegend) {
+                scalarLegendWidget->On();
+            }else{
+                scalarLegendWidget->Off();
+            }
+
+
+        if (viewWindow) {
+            cout << setw(printWidth) << right << "Opening render window for " << fileName[m] << endl;
+            scalarLegendWidget->SetInteractor(iren);
+
+            iren->AddObserver(vtkCommand::KeyPressEvent,keypressCallback);
+            iren->SetRenderWindow(renWin);
+
+            renWin->SetSize(600,600);
+            renWin->Render();
+            iren->SetDesiredUpdateRate(20);
+            iren->SetInteractorStyle(style);
+            iren->Start();
+        }else{
+            cout << setw(printWidth) << right << "Rendering off screen "<< imageName[m] << endl;
+            renWin->SetOffScreenRendering(1);
+            renWin->Render();
+            windowToImageFilter->SetInput(renWin);
+            windowToImageFilter->Update();
+            writer->SetFileName(imageName[m].c_str());
+            writer->SetInputConnection(windowToImageFilter->GetOutputPort());
+            writer->Write();
+
+        }
+
+//    color->Delete();
+//    property->Delete();
+//
+//    volume->Delete();
+//    mapper->Delete();
+//    reader->Delete();
+//    renderer->Delete();
+//    renWin->Delete();
+//    iren->Delete();
+//    style->Delete();
+//    color->Delete();
+//    compositeOpacity->Delete();
+
+
     }
-     else if ( !strcmp( argv[count], "-DependentComponents") )
-     {
-      independentComponents=false;
-      count += 1;
-     }
-    else
-    {
-      cout << "Unrecognized option: " << argv[count] << endl;
-      cout << endl;
-      PrintUsage();
-      exit(EXIT_FAILURE);
-    }
-  }
-
-  if ( !dirname && !fileName)
-  {
-    cout << "Error: you must specify a .vtk or .dat data file!" << endl;
-    cout << endl;
-    PrintUsage();
-    exit(EXIT_FAILURE);
-  }
-
-  // Create the renderer, render window and interactor
-  /* vtkRenderer *renderer = vtkRenderer::New(); */
-  VTK_CREATE(vtkRenderer,renderer);
-  VTK_CREATE(vtkRenderWindow,renWin);
-  renWin->AddRenderer(renderer);
-
-  // Connect it all. Note that funny arithematic on the
-  // SetDesiredUpdateRate - the vtkRenderWindow divides it
-  // allocated time across all renderers, and the renderer
-  // divides it time across all props. If clip is
-  // true then there are two props
-  VTK_CREATE(vtkRenderWindowInteractor,iren);
-  iren->SetRenderWindow(renWin);
-  VTK_CREATE(vtkInteractorStyleTrackballCamera,style);
-  iren->SetInteractorStyle(style);
-  renWin->Render();
- // Read the data
-  VTK_CREATE(vtkXMLImageDataReader,reader);
-  VTK_CREATE(vtkImageData,input);
-
-  if( fileType == VTI_FILETYPE )
-  {
-    reader->SetFileName(fileName);
-    reader->Update();
-  }
-  else if ( fileType == DAT_FILETYPE )
-  {
-  Dataset dat;
-  int datDim[4];
-  dat.setDatFileName(fileName);
-  dat.readDatFile();
-  dat.outputVTIFile();
-  dat.getDimension(datDim);
-  std::string vtiFile = dat.getVTIFileName(); 
-    reader->SetFileName(vtiFile.c_str());
-    reader->Update();
-    std::cout << "dat readder successful"<<std::endl;
-  }
-  else
-  {
-    cout << "Error! Not VTK or DAT!" << endl;
-    exit(EXIT_FAILURE);
-  }
-
-  input->ShallowCopy(reader->GetOutput());
-
-  // Create our volume and mapper
-  VTK_CREATE(vtkVolume,volume);
-  VTK_CREATE(vtkSmartVolumeMapper,mapper);
-  cout << reader->GetPointArrayStatus(reader->GetPointArrayName(1)) << endl;;
-  mapper->SetInputData( input );
-  mapper->SetBlendModeToComposite();
-
-
-  // Set the sample distance on the ray to be 1/2 the average spacing
-
-  VTK_CREATE(vtkCallbackCommand,keypressCallback);
-  keypressCallback->SetCallback(KeypressCallbackFunction);
-  keypressCallback->SetClientData(mapper);
-  iren->AddObserver(vtkCommand::KeyPressEvent,keypressCallback);
-
-
-  // Create our transfer function
-  /* vtkColorTransferFunction *colorFun = vtkColorTransferFunction::New(); */
-  VTK_CREATE(vtkColorTransferFunction,color);
-  /* vtkPiecewiseFunction *opacityFun = vtkPiecewiseFunction::New(); */
-  VTK_CREATE(vtkPiecewiseFunction,compositeOpacity);
-
-  // Create the property and attach the transfer functions
-  /* vtkVolumeProperty *property = vtkVolumeProperty::New(); */
-  VTK_CREATE(vtkVolumeProperty,property);
-  property->ShadeOff();
-  property->SetInterpolationType(VTK_LINEAR_INTERPOLATION);
-
-  compositeOpacity->AddPoint(-1.0,1.0);
-  compositeOpacity->AddPoint(1.0,1.0);
-  property->SetScalarOpacity(compositeOpacity); // composite first.
-  color->AddRGBPoint(-1.0  ,0.0,0.0,1.0);
-  color->AddRGBPoint(0.0  ,1.0,0.0,0.0);
-  color->AddRGBPoint(1.0,1.0,1.0,1.0);
-  property->SetColor(color);
-  // connect up the volume to the property and the mapper
-  volume->SetProperty( property );
-  volume->SetMapper( mapper );
-
-  mapper->SetScalarModeToUsePointFieldData();
-  mapper->SelectScalarArray(5);
-  mapper->Update();
-  volume->Update();
-  renderer->AddViewProp( volume );
-  renderer->ResetCamera();
-  renWin->Render();
-
-  /* renWin->SetSize(600,600); */
-  /* iren->Initialize(); */
-  mapper->SetRequestedRenderModeToRayCast();
-  renWin->Render();
-  iren->Start();
-
-  compositeOpacity->Delete();
-  color->Delete();
-  property->Delete();
-
-  volume->Delete();
-  mapper->Delete();
-  reader->Delete();
-  renderer->Delete();
-  renWin->Delete();
-  iren->Delete();
-  style->Delete();
-  color->Delete();
-  compositeOpacity->Delete();
-
-  return 0;
+    return 0;
 }

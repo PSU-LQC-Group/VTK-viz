@@ -2,7 +2,7 @@ filename = Polar
 extension = dat
 lstdformat = true
 
-start = 0
+start = 15000
 delta = 5000
 end = 20000
 

@@ -9,4 +9,4 @@ color.max = 1
 color.pointAdd = 0 255 0 0 1
 color.pointAdd = 1 0 255 0 1
 
-
+showLegend = true
