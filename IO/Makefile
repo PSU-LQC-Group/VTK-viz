@@ -8,7 +8,7 @@ INCPATH=$(shell pwd)
 VTKINC=-I${VTKROOT}/include/vtk-8.1
 
 CCFLAGS=-std=c++11
-src=FreeFormatOneLine.cxx FreeFormatParser.cxx SplittableString.cxx Dataset.cxx VectorDomainDataset.cxx VectorDomain.cxx FerroDomain.cxx Data.cxx
+src=FreeFormatOneLine.cxx FreeFormatParser.cxx SplittableString.cxx Dataset.cxx VectorDomainDataset.cxx VectorDomain.cxx FerroDomain.cxx Data.cxx ScreenPrint.cxx FileNamer.cxx
 hdr=$(src:.cxx=.h)
 obj=$(src:.cxx=.o)
 

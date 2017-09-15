@@ -2,8 +2,8 @@ filename = Polar
 extension = dat
 lstdformat = true
 
-start = 15000
-delta = 5000
+start = 10000
+delta = 10000
 end = 20000
 
 domainValue = 0.1
@@ -20,7 +20,7 @@ color.max = 1
 color.pointAdd = 25 1 0 0 1
 color.pointAdd = 26 0 1 0 0.5
 
-visibleAll = false
+visibleAll = true
 visible = 25 26
 
-
+winsize = 1000 1000

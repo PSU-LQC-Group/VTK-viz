@@ -111,6 +111,7 @@ int main(int argc, char *argv[])
     bool controlFileExist=false;
     bool visibleAll=true;
     int number;
+    int windowX=600,windowY=600;
 
     /* First setup to read the struct.in file 
      * The LSTDFORMAT, FILENAME, EXTENSION, START, DELTA, END
@@ -138,6 +139,15 @@ int main(int argc, char *argv[])
     }else{
         cout << setw(printWidth) << right << "No value of LSTDFORMAT is set, use the default value of " << fileFormatSTD << endl;
     }
+
+    if (structRead.firstKeyExist("WINSIZE")) {
+        istringstream(structRead.getFirstLevel("WINSIZE")[0]) >> windowX >>  windowY;
+        cout << setw(printWidth) << right << "The render window size is  " << windowX << " "<<windowY << endl;
+    }else{
+        cout << setw(printWidth) << right << "No render window size is set, use the default value of " << windowX << " " << windowY << endl;
+    }
+
+
 
 
 
@@ -240,11 +250,13 @@ int main(int argc, char *argv[])
     }
 
     if (structRead.firstKeyExist("VISIBLEALL")) {
-        istringstream(structRead.getFirstLevel("VISIBLEALL")[0])>>visibleAll;
+        istringstream(structRead.getFirstLevel("VISIBLEALL")[0])>>boolalpha >> visibleAll;
+
+        cout << setw(printWidth) << right << "All domains are visible " << boolalpha << visibleAll << endl ;
     }else{
         visibleAll=true;
+        cout << setw(printWidth) << right << "Use default value, All domains are visible " << boolalpha << visibleAll << endl ;
     }
-    cout << setw(printWidth) << right << "All domains are visible " << boolalpha << visibleAll << endl ;
 
 
 
@@ -524,15 +536,16 @@ int main(int argc, char *argv[])
             /* renderer->ResetCamera(); */
             cout << setw(printWidth) << right << "Opening render window for " << fileName[m] << endl;
             iren->SetRenderWindow(renWin);
-            renWin->SetSize(600,600);
+            renWin->SetSize(windowX,windowY);
             renWin->Render();
             iren->SetDesiredUpdateRate(20);
             iren->SetInteractorStyle(style);
             iren->Start();
         }else{
-            renWin->Render();
+            renWin->SetSize(windowX,windowY);
             cout << setw(printWidth) << right << "Rendering off screen " << imageName[m] << endl;
             renWin->SetOffScreenRendering(1);
+            renWin->Render();
             windowToImageFilter->SetInput(renWin);
             windowToImageFilter->Update();
             writer->SetFileName(imageName[m].c_str());

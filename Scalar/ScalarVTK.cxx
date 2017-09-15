@@ -40,7 +40,7 @@ PURPOSE.  See the above copyright notice for more information.
 #include "vtkCamera.h"
 #include "vtkWindowToImageFilter.h"
 #include "vtkPNGWriter.h"
- 
+
 
 #include <FreeFormatOneLine.h>
 #include <FreeFormatParser.h>
@@ -48,6 +48,7 @@ PURPOSE.  See the above copyright notice for more information.
 #include <sstream>
 #include <iostream>
 #include <iomanip>
+#include <ScreenPrint.h>
 
 #define VTI_FILETYPE 1
 #define DAT_FILETYPE 2
@@ -58,8 +59,8 @@ PURPOSE.  See the above copyright notice for more information.
 using namespace std;
 
 
-
-void KeypressCallbackFunction(vtkObject* caller, long unsigned int eventId, void* clientData, void* callData){
+string fileNameGlob;
+void arraySwitchCallbackFunction(vtkObject* caller, long unsigned int eventId, void* clientData, void* callData){
     /* VTK_CREATE(vtkSmartVolumeMapper,mapper); */
     vtkRenderWindowInteractor *iren = static_cast<vtkRenderWindowInteractor*>(caller);
 
@@ -67,11 +68,69 @@ void KeypressCallbackFunction(vtkObject* caller, long unsigned int eventId, void
 
     int number=(int)*iren->GetKeySym()-49;
     int colNum=map->GetInput()->GetPointData()->GetNumberOfArrays();
-    cout << "Pressed:" << number<<colNum<<endl;
+    cout << "PressedSwitched:" << number<<" "<<colNum<<endl;
     if (number<=colNum-1 && number >=0) {
         map->SelectScalarArray(number);
         map->Update();
     }
+
+}
+
+string autoFileNamer(string fileName){
+    string name,extension,outName,indexString;
+    int index;
+    stringstream ss;
+    index = 0;
+    ss.clear();
+    ss.str("");
+    ss << setw(3)<< setfill('0') << index ;
+    indexString = ss.str();
+    name = fileName.substr(0,fileName.find_last_of("."));
+    extension = fileName.substr(fileName.find_last_of(".")+1);
+
+    outName = name + "." + indexString + "." + extension;
+    /* cout << "auto namer" << outName <<endl; */
+    while (ifstream(outName)){
+        index = index + 1;
+        ss.clear();
+        ss.str("");
+        ss << setw(3) << index ;
+        indexString = ss.str();
+        outName = name + "." + indexString + "." + extension;
+        /* cout << "autonamer" << outName << endl; */
+    }
+    return outName;
+}
+
+void imageSaveCallbackFunction(vtkObject* caller, long unsigned int eventId, void* clientData, void* callData){
+    /* VTK_CREATE(vtkSmartVolumeMapper,mapper); */
+    vtkRenderWindowInteractor *iren = static_cast<vtkRenderWindowInteractor*>(caller);
+
+    /* string fileName=reinterpret_cast<string>(clientData); */
+    vtkRenderWindow* renWin=iren->GetRenderWindow();
+
+    VTK_CREATE(vtkWindowToImageFilter,windowToImageFilter);
+    VTK_CREATE(vtkPNGWriter,writer);
+
+    string imageName;
+    int index;
+
+
+
+    int number=(int)*iren->GetKeySym();
+    if (number==115) {
+        imageName = autoFileNamer(fileNameGlob);
+        cout << "PressedImage:" << imageName << " " <<fileNameGlob << " " << number<<endl;
+        renWin->SetOffScreenRendering(1);
+        renWin->Render();
+        windowToImageFilter->SetInput(renWin);
+        windowToImageFilter->Update();
+        writer->SetFileName(imageName.c_str());
+        writer->SetInputConnection(windowToImageFilter->GetOutputPort());
+        writer->Write();
+        renWin->SetOffScreenRendering(0);
+    }
+
 
 }
 
@@ -98,6 +157,8 @@ int main(int argc, char *argv[])
     double focalX,focalY,focalZ;
     double positionX,positionY,positionZ;
     double upX,upY,upZ;
+    double scalarMin,scalarMax;
+    double scalarRange[2];
     string cameraName;
     int datDim[4];
     int printWidth=80;
@@ -108,42 +169,47 @@ int main(int argc, char *argv[])
     char **firstLevel[300],**secondLevel[300];
 
     bool independentComponents=true;
-    vector<double*> lookUpTable;
-    double colorHold[5];
+    vector<vector<double>> lookUpTable;
+    vector<double> colorHold;
     bool controlFileExist=false;
-    bool showLegend=true;
+    bool showLegend=false;
     int colorCount=0;
     string choiceColor;
 
     ostringstream stringstream;
 
     FreeFormatParser structRead;
+    ScreenPrint print;
+    std::string outMessage;
+
+    colorHold.resize(5);
+
     structRead.setFilename("visual.in");
     controlFileExist=structRead.parse();
 
+    print.setWidth(120);
+    print.setColumnWidth(40);
+    print.setNumberWidth(15);
+
     if (controlFileExist) {
-        cout << "Start to read the visual.in file" << endl;
+        print.printCenter("Start to read the visual.in file",'-');
+        if (structRead.firstKeyExist("LSTDFORMAT")) {
+            istringstream(structRead.getFirstLevel("LSTDFORMAT")[0]) >> boolalpha >>  fileFormatSTD;
+            print.printVariable("Choose to use the standard dat format",fileFormatSTD);
+        }else{
+            print.printVariable("LSTDFORMAT is not set, use default",fileFormatSTD);
+        }
+
+
     }else if(argc>1){
-        cout << "Get parameter from command line" << endl;
+        print.printLeft("Get parameter from command line",' ');
     }else{
-        cout << "Either the visual.in file need to be given or a arguement is needed by the program" << endl;
+        print.printError("Either the visual.in file need to be given or a arguement is needed by the program");
         exit(-1);
     }
 
 
-    if (structRead.firstKeyExist("LSTDFORMAT")) {
-        istringstream(structRead.getFirstLevel("LSTDFORMAT")[0]) >> boolalpha >>  fileFormatSTD;
-        cout << setw(printWidth) << right << "Choose to use the standard dat format " << boolalpha << fileFormatSTD << endl;
-    }else{
-        cout << setw(printWidth) << right << "No value of LSTDFORMAT is set, use the default value of " << fileFormatSTD << endl;
-    }
 
-
-
-    /* cout << argc << "argc" << endl; */
-    /* If no filename is passed using arguement, 
-     * then read FILENAME, EXTENSION, START, DELTA, END
-     * from the struct.in file*/
 
     if (argc==1) {
         viewWindow=false;
@@ -151,43 +217,41 @@ int main(int argc, char *argv[])
 
         if (structRead.firstKeyExist("FILENAME")) {
             shortFileName = structRead.getFirstLevel("FILENAME")[0]; 
-            cout << setw(printWidth) << right << "The common file name is " << shortFileName << endl;
+            print.printVariable("The common file name",shortFileName) ;
         }else{
-            cout << "!!!!!!!!!!!Error!!!!!!!!!!!" << endl;
-            cout << "The FILENAME is not set yet" << endl;
-            cout << "!!!!!!!!!!!Error!!!!!!!!!!!" << endl;
+            print.printError("The FILENAME is not set yet");
             exit(-1);
         }
 
 
         if (structRead.firstKeyExist("EXTENSION")) {
             extension = structRead.getFirstLevel("EXTENSION")[0];
-            cout << setw(printWidth) << right << "The data extension is " << extension << endl;
+            print.printVariable("The data extension",extension);
         }else{
             extension = "dat";
-            cout << setw(printWidth) << right << "No extension is specified, use the default one " << extension << endl;
+            print.printVariable("No extension is set, use default",extension);
         }
 
 
         if (fileFormatSTD) {
             if (structRead.firstKeyExist("START")) {
                 istringstream(structRead.getFirstLevel("start")[0]) >> start ;
-                cout << setw(printWidth) << right << "The start time step is " << start << endl; 
+                print.printVariable("The starting time step",start);
             }else{
-                cout << setw(printWidth) << right << "No initial time step set, use the default value " << start << endl;
+                print.printVariable("No initial time step set, use the default value ",start);
             }
             if (structRead.firstKeyExist("END")) {
                 istringstream(structRead.getFirstLevel("end")[0]) >> end;
-                cout << setw(printWidth) << right << "The end time step is " << end << endl; 
+                print.printVariable("The end time step is ",end); 
             }else{
-                cout << setw(printWidth) << right << "No end time step set, use the default value " << end << endl;
+                print.printVariable("No end time step set, use the default value ", end);
             }
             if (structRead.firstKeyExist("DELTA")) {
                 istringstream(structRead.getFirstLevel("delta")[0]) >> delta;
-                cout << setw(printWidth) << right << "The delta time step is " << delta << endl; 
+                print.printVariable("The delta time step is",delta); 
             }else{
                 delta = end - start;
-                cout << setw(printWidth) << right << "No delta time step is set, use the default value " << delta << endl; 
+                print.printVariable("No delta time step is set, use the default value ",delta); 
             }
             if (delta!=0) {
                 count = (end-start)/delta + 1;
@@ -207,10 +271,10 @@ int main(int argc, char *argv[])
         }else{
             count=1;
             fileName.push_back(shortFileName + "." + extension);
-            cout << setw(printWidth) << right << "The fileName is " << fileName[0] << endl;
+            print.printVariable("The fileName is ", fileName[0]);
         }
 
-        cout << setw(printWidth) << right << "Numbers of file to be visualized " << count << endl;
+        print.printVariable("Numbers of file to be visualized ", count);
 
 
     }else{
@@ -218,26 +282,25 @@ int main(int argc, char *argv[])
         fileName.push_back(argv[1]);
         outputScalarAnalysis=true;
         extension=fileName[0].substr(fileName[0].find_last_of(".")+1);
-        cout << setw(printWidth) << "Visualize the file " << fileName[0] << endl;
-        cout << setw(printWidth) << "File extension is " << extension << endl;
+        outMessage= "Visualize the file "+fileName[0];
+        print.printCenter(outMessage,'-');
+        print.printVariable("File extension",extension);
     }
 
     if (structRead.firstKeyExist("SHOWLEGEND")) {
         istringstream(structRead.getFirstLevel("SHOWLEGEND")[0]) >> boolalpha >>  showLegend;
-        cout << setw(printWidth) << right << "Choose to use show the scalar legend bar " << boolalpha << showLegend << endl;
+        print.printVariable("Choose to show the scalar legend",showLegend);
     }else{
-        cout << setw(printWidth) << right << "Default is showing the scalar legend bar " << showLegend << endl;
+        print.printVariable("Default option for scalar legend bar",showLegend);
     }
 
 
 
 
-    cout << "Finished reading the visual.in file." << endl;
+    print.printLeft("Finished reading the visual.in file.",'-');
 
 
-    cout << "Initialize vtk." << endl;
-    // Create the renderer, render window and interactor
-    /* vtkRenderer *renderer = vtkRenderer::New(); */
+    print.printLeft("Initialize vtk.",'-');
 
 
     if (count > 1) {
@@ -246,7 +309,7 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < count; i++) {
 
-        cout <<setw(printWidth) << right << "Start to read data file " << fileName[i] <<endl;
+        print.printVariable("Start to read data file", fileName[i]);
         if( extension == "vti" )
         {
             vtiFileName.push_back(fileName[i]);
@@ -261,12 +324,13 @@ int main(int argc, char *argv[])
 
             dat.outputVTIFile();
 
+            print.printLeft("Dat file is converted to vti file for visualization",'-');
             vtiFileName.push_back(dat.getVTIFileName());
             imageName.push_back(dat.getLongFileName()+".png");
         }
         else
         {
-            cout << "Error! Not VTI or DAT!" << endl;
+            print.printError( "Error! Not VTI or DAT!");
             exit(EXIT_FAILURE);
         }
     }
@@ -287,7 +351,7 @@ int main(int argc, char *argv[])
      * information of the data*/
     if (structRead.firstKeyExist("LOOKUPTABLE")) {
         choiceColor = structRead.getFirstLevel("lookuptable")[0];
-        cout << setw(printWidth) << right << "Use the lookuptable " << choiceColor << endl; 
+        print.printVariable("Use the lookuptable ", choiceColor); 
         if (structRead.secondKeyExist(choiceColor,"POINTADD")) {
             colorCount = structRead.getSecondLevel(choiceColor,"POINTADD").size();
             for (int i = 0; i < colorCount; i++) {
@@ -298,41 +362,41 @@ int main(int argc, char *argv[])
                 colorHold[3] = B;
                 colorHold[4] = Alpha;
                 lookUpTable.push_back(colorHold);
-                cout << setw(printWidth) << right << "Add color pivot " << Value << " " << R << " " << G << " " << " " << B << " " << Alpha << endl;
+                print.printVariable("Add color pivot ", Value, R ,G,B, Alpha);
 
             }
         }
     }else{
-        cout << setw(printWidth) << right << "No lookuptable specified, use the default one" << endl;
+        print.printLeft("No lookuptable specified, use the default one",' ');
     }
 
     if (structRead.firstKeyExist("CAMERA")) {
         cameraName = structRead.getFirstLevel("CAMERA")[0];
-        cout << setw(printWidth) << right << "Choose to use the camera " << cameraName << endl;
+        print.printVariable( "Choose to use the camera ", cameraName);
         if (structRead.secondKeyExist(cameraName,"FOCAL")) {
             istringstream(structRead.getSecondLevel(cameraName,"FOCAL")[0]) >> focalX >> focalY >> focalZ;
-            cout << setw(printWidth) << right << "Camera focal point set to " << focalX << " " << focalY << " " <<focalZ << endl;
+            print.printVariable("Camera focal point set to", focalX, focalY, focalZ);
         }else{
-            cout << setw(printWidth) << right << "Use default value for camera focal point "<< focalX << " " << focalY << " " <<focalZ << endl;
+            print.printVariable("Use default value for camera focal point",focalX, focalY,focalZ);
         }
 
         if (structRead.secondKeyExist(cameraName,"POSITION")) {
             istringstream(structRead.getSecondLevel(cameraName,"POSITION")[0]) >> positionX >> positionY >> positionZ;
-            cout << setw(printWidth) << right << "Camera position set to " << positionX << " " << positionY << " " <<positionZ << endl;
+            print.printVariable("Camera position set to",positionX,positionY,positionZ);
         }else{
-            cout << setw(printWidth) << right << "Use default value for camera position "<< positionX << " " << positionY << " " <<positionZ << endl;
+            print.printVariable("Use default value for camera position",positionX,positionY,positionZ);
         }
 
         if (structRead.secondKeyExist(cameraName,"UP")) {
             istringstream(structRead.getSecondLevel(cameraName,"UP")[0]) >> upX >> upY >> upZ;
-            cout << setw(printWidth) << right << "Camera up direction set to " << upX << " " << upY << " " <<upZ << endl;
+            print.printVariable("Camera up direction set to",upX,upY,upZ);
         }else{
-            cout << setw(printWidth) << right << "Use default value for camera up direction "<< upX << " " << upY << " " <<upZ << endl;
+            print.printVariable("Use default value for camera up direction",upX,upY,upZ);
         }
 
 
     }else{
-        cout << setw(printWidth) << right << "No camera specified, use the default one" << endl;
+        print.printCenter("No camera specified, use the default one",' ');
     }
 
     for (int m = 0; m < count; m++) {
@@ -363,46 +427,26 @@ int main(int argc, char *argv[])
         VTK_CREATE(vtkWindowToImageFilter,windowToImageFilter);
         VTK_CREATE(vtkPNGWriter,writer);
 
-    VTK_CREATE(vtkCallbackCommand,keypressCallback);
-    keypressCallback->SetCallback(KeypressCallbackFunction);
-    keypressCallback->SetClientData(mapper);
+        VTK_CREATE(vtkCallbackCommand,arraySwitchCallback);
+        VTK_CREATE(vtkCallbackCommand,imageSaveCallback);
+        fileNameGlob=imageName[m];
+        /* imageSaveCallback->SetClientData(imageName[m]); */
 
 
-        
 
 
 
-        cout << setw(printWidth) << right << "Visualizing file " << vtiFileName[m] << endl;
+
+        print.printVariable("Visualizing file",vtiFileName[m]);
         reader -> SetFileName(vtiFileName[m].c_str());
         reader->Update();
-//        reader->GetOutput()->GetPointData()->GetScalars()->GetRange(scalarRange);
-//        if (colorCount == 0) {
-//        colorHold[0] = scalarMin;
-//        colorHold[1] = 0;
-//        colorHold[2] = 0;
-//        colorHold[3] = 1.0;
-//        colorHold[4] = 1.0;
-//        lookUpTable.push_back(colorHold);
-//        colorHold[0] = (scalarMin+scalarMax)/2.0;
-//        colorHold[1] = 0;
-//        colorHold[2] = 1.0;
-//        colorHold[3] = 0.0;
-//        colorHold[4] = 1.0;
-//        lookUpTable.push_back(colorHold);
-//        colorHold[0] = scalarMax;
-//        colorHold[1] = 1.0;
-//        colorHold[2] = 0.0;
-//        colorHold[3] = 0.0;
-//        colorHold[4] = 1.0;
-//        lookUpTable.push_back(colorHold);
-//        }
-
 
         /* input->ShallowCopy(reader->GetOutput()); */
 
         // Create our volume and mapper
         /* cout << reader->GetPointArrayStatus(reader->GetPointArrayName(1)) << endl;; */
         mapper->SetInputData( reader->GetOutput() );
+        mapper->SelectScalarArray(0);
         mapper->SetBlendModeToComposite();
 
 
@@ -418,55 +462,124 @@ int main(int argc, char *argv[])
         /* vtkVolumeProperty *property = vtkVolumeProperty::New(); */
         /* property->ShadeOff(); */
 
+        print.printLeft("Setting up color and opacity for the data",' ');
         if (colorCount>0) {
+            print.printLeft("Use value specified in visual.in",' ');
+        }else{
+            print.printLeft("Use default color value",' ');
+            /* reader->GetOutput()->GetPointData()->Print(cout); */
+
+
+            reader->GetOutput()->GetPointData()->GetArray(0)->GetRange(scalarRange);
+            scalarMin=scalarRange[0];
+            scalarMax=scalarRange[1];
+
+            int colNum=mapper->GetInput()->GetPointData()->GetNumberOfArrays();
+            for (int i = 0; i < colNum; i++) {
+
+                reader->GetOutput()->GetPointData()->GetArray(i)->GetRange(scalarRange);
+                reader->Update();
+                scalarMin=min(scalarMin,scalarRange[0]);
+                scalarMax=max(scalarMax,scalarRange[1]);
+            }
+            print.printVariable("The min value for lookuptable", scalarMin);
+            print.printVariable("The max value for lookuptable", scalarMax);
+            colorHold[0] = scalarMin;
+            colorHold[1] = 0.0;
+            colorHold[2] = 0.0;
+            colorHold[3] = 1.0;
+            colorHold[4] = 1.0;
+            lookUpTable.push_back(colorHold);
+            print.printVariable("Add color pivot ", colorHold[0],colorHold[1],colorHold[2],colorHold[3],colorHold[4]);
+            colorHold[0] = (scalarMin+scalarMax)/2.0;
+            colorHold[1] = 0.0;
+            colorHold[2] = 1.0;
+            colorHold[3] = 0.0;
+            colorHold[4] = 1.0;
+            lookUpTable.push_back(colorHold);
+            print.printVariable("Add color pivot ", colorHold[0],colorHold[1],colorHold[2],colorHold[3],colorHold[4]);
+            colorHold[0] = scalarMax;
+            colorHold[1] = 1.0;
+            colorHold[2] = 0.0;
+            colorHold[3] = 0.0;
+            colorHold[4] = 1.0;
+            lookUpTable.push_back(colorHold);
+            print.printVariable("Add color pivot ", colorHold[0],colorHold[1],colorHold[2],colorHold[3],colorHold[4]);
+            colorCount=3;
+
+        }
+
         for (int i = 0; i < lookUpTable.size(); i++) {
+            /* cout << "i" << i << " " <<lookUpTable[i][0] << endl; */
             compositeOpacity->AddPoint(lookUpTable[i][0],lookUpTable[i][4]);
             color->AddRGBPoint(lookUpTable[i][0],lookUpTable[i][1],lookUpTable[i][2],lookUpTable[i][3]);
         }
         property->SetInterpolationType(VTK_LINEAR_INTERPOLATION);
         property->SetScalarOpacity(compositeOpacity); // composite first.
         property->SetColor(color);
-        // connect up the volume to the property and the mapper
         volume->SetProperty( property );
-        }
-        volume->SetMapper( mapper );
 
+
+        volume->SetMapper( mapper );
         mapper->SetScalarModeToUsePointFieldData();
-        mapper->SelectScalarArray(5);
+        mapper->SelectScalarArray(0);
         mapper->Update();
         volume->Update();
         renderer->AddViewProp( volume );
 
         mapper->SetRequestedRenderModeToRayCast();
-        renderer->SetActiveCamera(camera);
 
         renWin->AddRenderer(renderer);
-        /* renWin->SetSize(600,600); */
-        /* iren->Initialize(); */
-        scalarLegendWidget->SetScalarBarActor(scaleBarActor);
-        scalarLegendWidget->ResizableOn();
+        renderer->SetBackground(1,1,1);
+
+
+
+
+        camera->SetFocalPoint(focalX,focalY,focalZ);
+        camera->SetPosition(positionX,positionY,positionZ);
+        camera->SetViewUp(upX,upY,upZ);
+        renderer->SetActiveCamera(camera);
+
+        scaleBarActor->SetLookupTable(color);
+        scaleBarActor->SetNumberOfLabels(4);
+        /* scalarBarActor->SetTitle("Title"); */
+
+        if (viewWindow) {
+            print.printVariable("Opening render window for",fileName[m]);
+
+
+
+            arraySwitchCallback->SetCallback(arraySwitchCallbackFunction);
+            arraySwitchCallback->SetClientData(mapper);
+            imageSaveCallback->SetCallback(imageSaveCallbackFunction);
+
+            renWin->SetSize(600,600);
+            /* iren->Initialize(); */
+            iren->AddObserver(vtkCommand::KeyPressEvent,arraySwitchCallback);
+            iren->AddObserver(vtkCommand::KeyPressEvent,imageSaveCallback);
+            iren->SetRenderWindow(renWin);
+
+            scalarLegendWidget->SetInteractor(iren);
+            scalarLegendWidget->SetScalarBarActor(scaleBarActor);
+            scalarLegendWidget->ResizableOn();
             if (showLegend) {
                 scalarLegendWidget->On();
+                scaleBarActor->SetVisibility(true);
             }else{
                 scalarLegendWidget->Off();
+                scaleBarActor->SetVisibility(false);
             }
 
 
-        if (viewWindow) {
-            cout << setw(printWidth) << right << "Opening render window for " << fileName[m] << endl;
-            scalarLegendWidget->SetInteractor(iren);
 
-            iren->AddObserver(vtkCommand::KeyPressEvent,keypressCallback);
-            iren->SetRenderWindow(renWin);
-
-            renWin->SetSize(600,600);
             renWin->Render();
             iren->SetDesiredUpdateRate(20);
             iren->SetInteractorStyle(style);
             iren->Start();
         }else{
-            cout << setw(printWidth) << right << "Rendering off screen "<< imageName[m] << endl;
+            print.printVariable("Rendering off screen", imageName[m]);
             renWin->SetOffScreenRendering(1);
+            renderer->AddActor2D(scaleBarActor);
             renWin->Render();
             windowToImageFilter->SetInput(renWin);
             windowToImageFilter->Update();
@@ -476,18 +589,18 @@ int main(int argc, char *argv[])
 
         }
 
-//    color->Delete();
-//    property->Delete();
-//
-//    volume->Delete();
-//    mapper->Delete();
-//    reader->Delete();
-//    renderer->Delete();
-//    renWin->Delete();
-//    iren->Delete();
-//    style->Delete();
-//    color->Delete();
-//    compositeOpacity->Delete();
+        //    color->Delete();
+        //    property->Delete();
+        //
+        //    volume->Delete();
+        //    mapper->Delete();
+        //    reader->Delete();
+        //    renderer->Delete();
+        //    renWin->Delete();
+        //    iren->Delete();
+        //    style->Delete();
+        //    color->Delete();
+        //    compositeOpacity->Delete();
 
 
     }

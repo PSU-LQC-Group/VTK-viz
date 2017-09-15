@@ -1,4 +1,5 @@
 #include <string>
+#include <vector>
 
 #ifndef SplittableString_H
 #define SplittableString_H
@@ -14,15 +15,20 @@ class SplittableString{
         std::string getBefore();
         std::string getAfter();
         std::string getText();
+        std::string getFirst();
+        std::string getLast();
+        std::string getMiddle();
+        std::string getIndex(int);
         void split();
 
 
     private:
-        std::string deliminator=".";
-        std::string text="";
-        std::string before="";
-        std::string after="";
-
+        std::string deliminator;
+        std::string text;
+        std::string before;
+        std::string after;
+        std::string first,last,middle;
+        vector<std::string> tagList;
 };
 
 #endif

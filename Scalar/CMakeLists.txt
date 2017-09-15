@@ -27,18 +27,20 @@ set (SRCS
     FreeFormatOneLine.cxx
     FreeFormatParser.cxx
     SplittableString.cxx
+    ScreenPrint.cxx
     )
 
 set (HDRS
     FreeFormatOneLine.h
     FreeFormatParser.h
     SplittableString.h
+    ScreenPrint.h
     )
 
 set(RENDERING_EXAMPLES_SRCS
     ScalarVTK
-    FixedPointVolumeRayCastMapperCT
-    GPURenderDemo
+    #/* FixedPointVolumeRayCastMapperCT */
+    #/* GPURenderDemo */
 )
 
 set (EXECUTABLE_OUTPUT_PATH
